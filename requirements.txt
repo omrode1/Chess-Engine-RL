@@ -1,0 +1,5 @@
+python-chess
+torch 
+torchvision 
+stable-baselines3 
+gym 
