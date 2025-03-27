@@ -114,10 +114,10 @@ class ChessEnv(gym.Env):
         #penalty for early side pawn movement
         early_side_pawn_penalty = 0
         if len(self.board.move_stack) < 10:
-            side_pawns = [chess.A4, chess.H4, chess.A3, chess.H3]
+            side_pawns = [chess.A4, chess.H4, chess.A3, chess.H3, chess.B3, chess.G3]
             for move in self.board.move_stack:
                 if move.to_square in side_pawns:
-                    early_side_pawn_penalty -= 0.3
+                    early_side_pawn_penalty -= 0.4
 
         # Penalty for repetition (using python-chess's built-in detection)
         repetition_penalty = 0
@@ -127,9 +127,23 @@ class ChessEnv(gym.Env):
                 repetition_penalty = -0.3
             elif self.board.is_repetition(3):  # Position has occurred three times
                 repetition_penalty = -0.6  # Stronger penalty for more repetitions
-                
+
+        # penalty for repeated rook moves  
+        repeated_rook_moves = 0
+        if len(self.board.move_stack) > 6:
+            last_moves = self.board.move_stack[-6:]
+            if (last_moves[0].from_square == last_moves[2].to_square and 
+                last_moves[2].from_square == last_moves[4].to_square and
+                last_moves[1].from_square == last_moves[3].to_square and
+                last_moves[3].from_square == last_moves[5].to_square):
+                repeated_rook_moves = -2.0
+
         # Penalty for moves that don't make progress (moving back and forth)
         move_oscillation_penalty = 0
+
+            # penalty for repeated rook moves  
+
+
         if len(self.board.move_stack) >= 4:
             # Check if the last 4 moves involve the same pieces moving back and forth
             last_moves = self.board.move_stack[-4:]
@@ -145,9 +159,9 @@ class ChessEnv(gym.Env):
             last_move = self.board.move_stack[-1]
             # Check if king moved two squares (indicates castling)
             if last_move.from_square == chess.E1 and last_move.to_square in [chess.C1, chess.G1]:
-                castling_reward = 1.0 # Castling for white
+                castling_reward = 1.5 # Castling for white
             elif last_move.from_square == chess.E8 and last_move.to_square in [chess.C8, chess.G8]:
-                castling_reward = 1.0  # Castling for black
+                castling_reward = 1.5  # Castling for black
 
         # Reward early development (knights and bishops)
         development_reward = 0
@@ -198,7 +212,8 @@ class ChessEnv(gym.Env):
             opening_development_reward +
             repetition_penalty +
             move_oscillation_penalty +
-            early_piece_movement_penalty
+            early_piece_movement_penalty +
+            repeated_rook_moves
         )
                 
         return total_reward
