@@ -1,5 +1,7 @@
-python-chess
-torch 
-torchvision 
-stable-baselines3 
-gym 
+numpy>=1.20.0
+torch>=1.10.0
+gym>=0.21.0,<0.24.0  # Upper bound for Stable-Baselines3 compatibility
+stable-baselines3>=1.5.0
+python-chess>=1.9.0
+matplotlib>=3.5.0  # For visualization if needed
+tensorboard>=2.8.0  # For logging training progress 
