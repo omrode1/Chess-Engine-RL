@@ -1,0 +1,10 @@
+[Event "RL Chess Engine Self-play"]
+[Site "Local Machine"]
+[Date "2025.03.27"]
+[Round "1"]
+[White "RL Chess Engine"]
+[Black "RL Chess Engine"]
+[Result "*"]
+[Model "chess_rl_final.zip"]
+
+1. dxd5 { Reward: 0.10 } 1... exe3 { Reward: 0.20 } 2. Nxf6+ { Reward: 0.40 }

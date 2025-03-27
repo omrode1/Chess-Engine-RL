@@ -1,0 +1,10 @@
+[Event "RL Chess Engine Self-play"]
+[Site "Local Machine"]
+[Date "2025.03.27"]
+[Round "1"]
+[White "RL Chess Engine"]
+[Black "RL Chess Engine"]
+[Model "chess_rl_final.zip"]
+[Result "*"]
+
+1. d7d5 { Reward: 0.10 } e2e3 { Reward: 0.20 } 2. g8f6 { Reward: 0.40 } b1d2 { Reward: 0.40 } 3. g8h6 { Reward: 0.50 } e5d7 { Reward: 0.50 } 4. f8e7 { Reward: 0.40 } d7b8 { Reward: 0.20 } 5. h8f8 { Reward: 3.20 } b8c6 { Reward: 0.20 } 6. f8g8 { Reward: 0.20 } c6d8 { Reward: 0.20 } 7. h8g8 { Reward: 9.20 } d8b7 { Reward: 0.20 } 8. f8g8 { Reward: 1.20 } b7d6 { Reward: 0.20 } 9. e8d8 { Reward: 0.30 } d6c8 { Reward: 0.20 } 10. g8f8 { Reward: 3.20 } c8a7 { Reward: 0.20 } 11. f8g8 { Reward: 1.20 } a7c6 { Reward: 0.20 } 12. d8c8 { Reward: 0.30 } c6d8 { Reward: 0.20 } 13. e8f8 { Reward: 3.20 } e7c8 { Reward: 0.20 } 14. f8g8 { Reward: 0.20 } c8a7 { Reward: 0.20 } 15. g8f8 { Reward: 0.20 } a7c6 { Reward: 0.20 } 16. f8g8 { Reward: 0.20 } c6d8 { Reward: 0.20 } 17. h8g8 { Reward: 0.20 } d8b7 { Reward: 0.20 } 18. f8g8 { Reward: 0.20 } b7d6 { Reward: 0.20 } 19. e8d8 { Reward: 0.30 } d6c8 { Reward: 0.20 } 20. g8f8 { Reward: 0.20 } c8a7 { Reward: 0.20 } 21. f8g8 { Reward: 0.20 } a7c6 { Reward: 0.20 } 22. d8c8 { Reward: 0.30 } c6d8 { Reward: 0.20 } 23. g8h8 { Reward: 0.20 } d8b7 { Reward: 0.20 } 24. f8g8 { Reward: 0.20 } b7d6 { Reward: 0.20 } 25. e8d8 { Reward: 0.30 } d6c8 { Reward: 0.20 } *

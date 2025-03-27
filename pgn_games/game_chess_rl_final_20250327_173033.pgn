@@ -1,0 +1,10 @@
+[Event "AI Chess Game"]
+[Site "RL Training"]
+[Date "2025.03.27"]
+[Round "1"]
+[White "ChessRL Agent"]
+[Black "ChessRL Agent"]
+[Result "*"]
+
+1. d4 d5 2. Nf3 e6 3. Ne5 Nh6 4. Nd7 Be7 5. Nxb8 Rf8 6. Nc6 Rh8 7. Nxd8 Rf8 8. Nxb7 Rg8 9. Nd6+ Kd8 10. Nxc8 Rf8 11. Nxa7 Rg8 12. Nc6+ Ke8 13. Nxe7 Rf8 14. Nc8 Rg8 15. Na7 Rf8 16. Nc6 Rh8 17. Nd8 Rf8 18. Nb7 Rg8 19. Nd6+ Kd8 20. Nc8 Rf8 21. Na7 Rg8 22. Nc6+ Ke8 23. Nd8 Rf8 24. Nb7 Rg8 25. Nd6+ Kd8 *
+
