@@ -136,7 +136,7 @@ class ChessEnv(gym.Env):
                 last_moves[2].from_square == last_moves[4].to_square and
                 last_moves[1].from_square == last_moves[3].to_square and
                 last_moves[3].from_square == last_moves[5].to_square):
-                repeated_rook_moves = -2.0
+                repeated_rook_moves = -5.0
 
         # Penalty for moves that don't make progress (moving back and forth)
         move_oscillation_penalty = 0
@@ -151,7 +151,7 @@ class ChessEnv(gym.Env):
                 last_moves[0].to_square == last_moves[2].from_square and
                 last_moves[1].from_square == last_moves[3].to_square and
                 last_moves[1].to_square == last_moves[3].from_square):
-                move_oscillation_penalty = -1.0  # Penalty for going back and forth
+                move_oscillation_penalty = -5.0  # Penalty for going back and forth
             
         # Reward for castling
         castling_reward = 0
@@ -159,9 +159,9 @@ class ChessEnv(gym.Env):
             last_move = self.board.move_stack[-1]
             # Check if king moved two squares (indicates castling)
             if last_move.from_square == chess.E1 and last_move.to_square in [chess.C1, chess.G1]:
-                castling_reward = 1.5 # Castling for white
+                castling_reward = 3.0 # Castling for white
             elif last_move.from_square == chess.E8 and last_move.to_square in [chess.C8, chess.G8]:
-                castling_reward = 1.5  # Castling for black
+                castling_reward = 3.0  # Castling for black
 
         # Reward early development (knights and bishops)
         development_reward = 0
