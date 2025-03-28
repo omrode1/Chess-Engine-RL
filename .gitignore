@@ -2,3 +2,18 @@ models/
 
 *.zip
 
+*.csv
+*.jpg
+*.png
+
+/logs_with_opening_book/
+
+/src/pycache/
+
+/pycache/
+
+/pgn_games/
+
+/legacy/logs
+
+
