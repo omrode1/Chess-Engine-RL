@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.callbacks import BaseCallback
 import pandas as pd
 from collections import Counter, deque
+import csv
+from stable_baselines3.common.results_plotter import ts2xy, load_results
+import torch
 
 class MetricsLogger(BaseCallback):
     """
@@ -50,6 +53,19 @@ class MetricsLogger(BaseCallback):
         # For tracking positions within episodes
         self.current_positions = []
         
+        # Set up CSV logger
+        self.csv_file = open(os.path.join(self.csv_dir, "training_metrics.csv"), 'w', newline='')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(['Timestep', 'Reward', 'Episode Length', 'Material Balance'])
+        
+        # Metrics tracking
+        self.material_balances = []
+        self.timesteps = []
+        
+        # For averaging metrics
+        self.current_episode_length = 0
+        self.current_episode_material = []
+        
     def _on_step(self) -> bool:
         # Get info from the most recent step - handle both vectorized and non-vectorized envs
         if isinstance(self.locals.get('infos'), list) and len(self.locals.get('infos', [])) > 0:
@@ -84,6 +100,10 @@ class MetricsLogger(BaseCallback):
                 self.move_counter[last_move] += 1
                 self.total_moves += 1
         
+        # Track material balance if available
+        if isinstance(info, dict) and 'material_balance' in info:
+            self.current_episode_material.append(info['material_balance'])
+        
         # Check if episode is done
         if done:
             self.episode_count += 1
@@ -97,6 +117,13 @@ class MetricsLogger(BaseCallback):
             oscillation_count = self._calculate_oscillations(self.current_positions)
             self.oscillation_counts.append(oscillation_count)
             
+            # Calculate average material balance for the episode
+            if self.current_episode_material:
+                avg_material = np.mean(self.current_episode_material)
+                self.material_balances.append(avg_material)
+            else:
+                self.material_balances.append(0)
+            
             # Record metrics
             self.metrics_data['timesteps'].append(self.num_timesteps)
             self.metrics_data['episode'].append(self.episode_count)
@@ -105,16 +132,27 @@ class MetricsLogger(BaseCallback):
             self.metrics_data['move_diversity'].append(move_diversity)
             self.metrics_data['oscillation_count'].append(oscillation_count)
             
+            # Log to CSV
+            self.csv_writer.writerow([
+                self.num_timesteps, 
+                self.current_episode_reward, 
+                len(self.current_episode_moves),
+                self.material_balances[-1]
+            ])
+            self.csv_file.flush()  # Ensure data is written immediately
+            
             # Reset episode-specific trackers
             self.current_episode_reward = 0
             self.current_episode_moves = []
             self.current_positions = []
+            self.current_episode_length = 0
+            self.current_episode_material = []
             
             # Generate plots every 10 episodes
             if self.episode_count % 10 == 0:
                 self._save_metrics_csv()
                 self._plot_metrics()
-                
+        
         return True
     
     def _calculate_move_diversity(self):
@@ -185,4 +223,137 @@ class MetricsLogger(BaseCallback):
         # Adjust layout and save
         plt.tight_layout()
         plt.savefig(os.path.join(self.plots_dir, f"metrics_plot_{timestep}.png"))
-        plt.close() 
+        plt.close()
+        
+    def on_training_end(self):
+        """Clean up and create final plots on training end"""
+        self.csv_file.close()
+        
+        # Create final plots
+        self._plot_metrics()
+        
+        # Create a DataFrame with all metrics for easier analysis
+        df = pd.DataFrame({
+            'Timestep': self.timesteps,
+            'Reward': self.episode_rewards,
+            'Episode_Length': self.episode_lengths,
+            'Material_Balance': self.material_balances
+        })
+        
+        # Save DataFrame to CSV
+        df.to_csv(os.path.join(self.csv_dir, "all_metrics.csv"), index=False)
+        
+        # Create a smoothed version of the reward plot
+        if len(self.episode_rewards) > 0:
+            window_size = min(50, len(self.episode_rewards))
+            smoothed_rewards = df['Reward'].rolling(window=window_size).mean()
+            
+            plt.figure(figsize=(10, 5))
+            plt.plot(self.timesteps, self.episode_rewards, alpha=0.3, label='Raw')
+            plt.plot(self.timesteps, smoothed_rewards, label=f'Smoothed (window={window_size})')
+            plt.xlabel('Timesteps')
+            plt.ylabel('Episode Reward')
+            plt.title('Training Rewards (Smoothed)')
+            plt.legend()
+            plt.savefig(os.path.join(self.plots_dir, "rewards_smoothed.png"))
+            plt.close()
+
+class ActionQualityMonitor(BaseCallback):
+    """
+    Monitors the quality of action selection during training.
+    Tracks how often the model selects legal actions vs illegal actions.
+    """
+    def __init__(self, log_dir, verbose=0):
+        super(ActionQualityMonitor, self).__init__(verbose)
+        self.log_dir = log_dir
+        os.makedirs(f"{log_dir}/plots", exist_ok=True)
+        os.makedirs(f"{log_dir}/csv", exist_ok=True)
+        
+        # Set up CSV logger for action quality
+        self.csv_file = open(f"{log_dir}/csv/action_quality.csv", 'w', newline='')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(['Timestep', 'Legal Actions', 'Illegal Actions', 'Legal Action Rate'])
+        
+        # Metrics tracking
+        self.legal_actions = 0
+        self.illegal_actions = 0
+        self.legal_action_rates = []
+        self.timesteps_log = []
+        self.log_frequency = 1000  # Log every 1000 steps
+        
+    def _on_step(self) -> bool:
+        # Get the environment
+        env = self.training_env.envs[0].unwrapped if hasattr(self.training_env, 'envs') else self.training_env.unwrapped
+        
+        # Check the reward value to determine if the move was valid
+        # In our chess environment, invalid moves get -0.5 reward
+        reward = self.locals.get('rewards', [0])[0] if isinstance(self.locals.get('rewards'), list) else self.locals.get('reward', 0)
+        
+        # Check for invalid move based on reward value or info dict
+        is_invalid = False
+        
+        # In our chess env, reward of -0.5 indicates an invalid move
+        if reward == -0.5:
+            is_invalid = True
+        
+        # Some envs might also have an 'invalid_move' key in info
+        info = self.locals.get('infos', [{}])[0] if isinstance(self.locals.get('infos'), list) else self.locals.get('info', {})
+        if isinstance(info, dict) and info.get('invalid_move', False):
+            is_invalid = True
+        
+        # Update counters
+        if is_invalid:
+            self.illegal_actions += 1
+        else:
+            self.legal_actions += 1
+        
+        # Log metrics periodically
+        if self.num_timesteps % self.log_frequency == 0 and (self.legal_actions + self.illegal_actions) > 0:
+            total_actions = self.legal_actions + self.illegal_actions
+            legal_action_rate = self.legal_actions / total_actions if total_actions > 0 else 0
+            
+            self.legal_action_rates.append(legal_action_rate)
+            self.timesteps_log.append(self.num_timesteps)
+            
+            # Log to CSV
+            self.csv_writer.writerow([
+                self.num_timesteps,
+                self.legal_actions,
+                self.illegal_actions,
+                legal_action_rate
+            ])
+            self.csv_file.flush()
+            
+            # Plot the metrics
+            if len(self.timesteps_log) > 1:  # Only plot if we have multiple data points
+                self._plot_action_quality()
+        
+        return True
+    
+    def _plot_action_quality(self):
+        """Generate plot for action quality metrics"""
+        plt.figure(figsize=(10, 5))
+        plt.plot(self.timesteps_log, self.legal_action_rates)
+        plt.xlabel('Timesteps')
+        plt.ylabel('Legal Action Rate')
+        plt.title('Model Action Quality (Higher is Better)')
+        plt.ylim(0, 1)
+        plt.savefig(f"{self.log_dir}/plots/action_quality.png")
+        plt.close()
+    
+    def on_training_end(self):
+        """Clean up on training end"""
+        self.csv_file.close()
+        
+        # Create final plot
+        if len(self.timesteps_log) > 1:  # Only plot if we have multiple data points
+            self._plot_action_quality()
+        
+        # Print statistics
+        total_actions = self.legal_actions + self.illegal_actions
+        legal_rate = self.legal_actions / total_actions if total_actions > 0 else 0
+        
+        print("\nAction Selection Quality:")
+        print(f"Total legal actions: {self.legal_actions}")
+        print(f"Total illegal actions: {self.illegal_actions}")
+        print(f"Legal action rate: {legal_rate:.2%}") 

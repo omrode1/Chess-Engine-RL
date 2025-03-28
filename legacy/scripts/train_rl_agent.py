@@ -33,18 +33,21 @@ metrics_logger = MetricsLogger(log_dir=logs_dir)
 # Combine callbacks
 callbacks = CallbackList([checkpoint_callback, metrics_logger])
 
-# Define RL model (Deep Q-Network)
+# Define RL model (Deep Q-Network) with improved parameters
 model = DQN(
     "MlpPolicy", 
     env, 
     verbose=1, 
-    learning_rate=0.0003,       # Lower learning rate for stability
-    batch_size=64,              # Smaller batch size
-    buffer_size=50000,          # Smaller buffer size
-    exploration_final_eps=0.1,  # Final exploration rate
-    exploration_fraction=0.2,   # Explore for the first 20% of training
-    learning_starts=1000,       # Start learning after 1000 steps
-    target_update_interval=500, # Update target network more frequently
+    learning_rate=0.0005,           # Increased learning rate for better adaption
+    batch_size=128,                 # Larger batch size for more stable learning
+    buffer_size=100000,             # Increased buffer size to remember more experiences
+    exploration_final_eps=0.1,      # Final exploration rate
+    exploration_fraction=0.4,       # Longer exploration period (40% of training)
+    learning_starts=5000,           # Start learning after more experience
+    target_update_interval=1000,    # Update target network more frequently
+    gamma=0.99,                     # Discount factor - slightly increased
+    train_freq=4,                   # Update model every 4 steps
+    gradient_steps=1,               # Number of gradient steps per update
     tensorboard_log=logs_dir,
     device="auto"
 )
