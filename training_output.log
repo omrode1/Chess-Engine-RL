@@ -1,0 +1,120 @@
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+/home/quantic/.virtualenvs/engine/lib/python3.10/site-packages/stable_baselines3/common/vec_env/patch_gym.py:49: UserWarning: You provided an OpenAI Gym environment. We strongly recommend transitioning to Gymnasium environments. Stable-Baselines3 is automatically wrapping your environments in a compatibility layer, which could potentially cause issues.
+  warnings.warn(
+Environment initialized with 18 parallel games, opening book knowledge, legal moves wrapper, and enhanced tactical awareness.
+Using cuda device
+Starting training with enhanced tactical awareness...
+The agent will receive rewards for following established opening theory.
+Illegal moves will be masked during training to improve action selection.
+The agent will receive penalties for hanging pieces and rewards for capturing undefended pieces.
+The agent will be rewarded for defending its threatened pieces.
+Training with 18 parallel environments for increased speed.
+Logging to tactical_logs/DQN_4
+----------------------------------
+| rollout/            |          |
+|    ep_len_mean      | 340      |
+|    ep_rew_mean      | -234     |
+|    exploration_rate | 0.859    |
+| time/               |          |
+|    episodes         | 100      |
+|    fps              | 1406     |
+|    time_elapsed     | 26       |
+|    total_timesteps  | 37206    |
+| train/              |          |
+|    learning_rate    | 0.0005   |
+|    loss             | 4.35     |
+|    n_updates        | 8044     |
+----------------------------------
+----------------------------------
+| rollout/            |          |
+|    ep_len_mean      | 359      |
+|    ep_rew_mean      | -242     |
+|    exploration_rate | 0.726    |
+| time/               |          |
+|    episodes         | 200      |
+|    fps              | 1356     |
+|    time_elapsed     | 53       |
+|    total_timesteps  | 72108    |
+| train/              |          |
+|    learning_rate    | 0.0005   |
+|    loss             | 7.96     |
+|    n_updates        | 15800    |
+----------------------------------
+----------------------------------
+| rollout/            |          |
+|    ep_len_mean      | 360      |
+|    ep_rew_mean      | -224     |
+|    exploration_rate | 0.586    |
+| time/               |          |
+|    episodes         | 300      |
+|    fps              | 1356     |
+|    time_elapsed     | 80       |
+|    total_timesteps  | 108900   |
+| train/              |          |
+|    learning_rate    | 0.0005   |
+|    loss             | 126      |
+|    n_updates        | 23976    |
+----------------------------------
+----------------------------------
+| rollout/            |          |
+|    ep_len_mean      | 349      |
+|    ep_rew_mean      | -231     |
+|    exploration_rate | 0.452    |
+| time/               |          |
+|    episodes         | 400      |
+|    fps              | 1355     |
+|    time_elapsed     | 106      |
+|    total_timesteps  | 144306   |
+| train/              |          |
+|    learning_rate    | 0.0005   |
+|    loss             | 7.84e+03 |
+|    n_updates        | 31844    |
+----------------------------------
+----------------------------------
+| rollout/            |          |
+|    ep_len_mean      | 364      |
+|    ep_rew_mean      | -239     |
+|    exploration_rate | 0.308    |
+| time/               |          |
+|    episodes         | 500      |
+|    fps              | 1351     |
+|    time_elapsed     | 134      |
+|    total_timesteps  | 182016   |
+| train/              |          |
+|    learning_rate    | 0.0005   |
+|    loss             | 2.31e+10 |
+|    n_updates        | 40224    |
+----------------------------------

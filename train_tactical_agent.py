@@ -11,10 +11,17 @@ from utils.custom_callbacks import MetricsLogger, ActionQualityMonitor
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.dqn.policies import DQNPolicy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecMonitor
+from stable_baselines3.common.monitor import Monitor
 from torch import nn
 import torch.nn.functional as F
 from gym import spaces
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+
+
+
+
+
 
 # Custom neural network that will be used as policy
 class ChessFeatureExtractor(BaseFeaturesExtractor):
@@ -107,8 +114,24 @@ class LegalMovesWrapper(gym.Wrapper):
         # Call the original step method with the mapped action
         return self.env.step(action)
 
-def train_model(total_timesteps=1000000, model_dir="models_with_opening_book", 
-                log_dir="logs_with_opening_book", use_opening_book=True):
+def make_env(rank, use_opening_book=True, seed=0):
+    """
+    Creates a chess environment with the appropriate wrappers.
+    Used for vectorized environments.
+    """
+    def _init():
+        env = ChessEnvWithOpeningBook(
+            use_opening_book=use_opening_book,
+            opening_book_moves=10,  # Use opening book for the first 10 moves
+            opening_bonus=0.5  # Bonus reward for following the opening book
+        )
+        env = LegalMovesWrapper(env)
+        return env
+    return _init
+
+def train_model(total_timesteps=1000000, model_dir="tactical_models", 
+                log_dir="tactical_logs", use_opening_book=True,
+                num_envs=4):  # Number of parallel environments
     """
     Train a chess RL agent with the given parameters.
     
@@ -117,31 +140,32 @@ def train_model(total_timesteps=1000000, model_dir="models_with_opening_book",
         model_dir: Directory to save models
         log_dir: Directory to save logs
         use_opening_book: Whether to use opening book knowledge
+        num_envs: Number of parallel environments to use
         
     Returns:
         The trained model
     """
+    # Enable CUDA optimizations if available
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+    
     # Create logs directory
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(model_dir, exist_ok=True)
 
-    # Initialize the chess environment with opening book
-    env = ChessEnvWithOpeningBook(
-        use_opening_book=use_opening_book,
-        opening_book_moves=10,  # Use opening book for the first 10 moves
-        opening_bonus=0.5  # Bonus reward for following the opening book
-    )
+    # Create vectorized environment with multiple parallel environments
+    env = SubprocVecEnv([make_env(i, use_opening_book) for i in range(num_envs)], start_method='spawn')
+    
+    # Add monitoring wrapper at the vectorized environment level instead of individual environments
+    env = VecMonitor(env, log_dir)
 
-    # Wrap the environment to ensure actions are always legal
-    env = LegalMovesWrapper(env)
-
-    print("Environment initialized with opening book knowledge and legal moves wrapper.")
+    print(f"Environment initialized with {num_envs} parallel games, opening book knowledge, legal moves wrapper, and enhanced tactical awareness.")
 
     # Define callbacks
     checkpoint_callback = CheckpointCallback(
         save_freq=10000,  # Save model every 10k steps
         save_path=model_dir,
-        name_prefix="chess_model_with_opening_book"
+        name_prefix="chess_tactical_model"
     )
 
     # Add custom metrics logger callback
@@ -159,23 +183,25 @@ def train_model(total_timesteps=1000000, model_dir="models_with_opening_book",
         env=env, 
         verbose=1, 
         learning_rate=0.0005,           # Higher learning rate for faster adaptation
-        batch_size=128,                 # Larger batch size for more stable learning
-        buffer_size=100000,             # Larger buffer for better memory
+        batch_size=256,                 # Even larger batch size for more stable learning with parallel envs
+        buffer_size=200000,             # Larger buffer for better memory with parallel envs
         exploration_final_eps=0.05,     # Lower final exploration for more exploitation
-        exploration_fraction=0.3,       # Explore for the first 30% of training
-        learning_starts=5000,           # Start learning after accumulating experiences
-        target_update_interval=1000,    # Update target network more frequently
+        exploration_fraction=0.25,      # Faster exploration decay with parallel envs
+        learning_starts=1000,           # Start learning sooner with parallel envs
+        target_update_interval=500,     # Update target network more frequently
         gamma=0.99,                     # Discount factor
-        train_freq=4,                   # Update model every 4 steps
-        gradient_steps=1,               # Number of gradient steps per update
+        train_freq=1,                   # Update model every step for faster learning
+        gradient_steps=4,               # More gradient steps per update for faster learning
         tensorboard_log=log_dir,
         device="auto"
     )
 
-    print("Starting training with opening book knowledge and action masking...")
+    print("Starting training with enhanced tactical awareness...")
     print("The agent will receive rewards for following established opening theory.")
     print("Illegal moves will be masked during training to improve action selection.")
-    print("The environment wrapper ensures actions are always mapped to legal moves.")
+    print("The agent will receive penalties for hanging pieces and rewards for capturing undefended pieces.")
+    print("The agent will be rewarded for defending its threatened pieces.")
+    print(f"Training with {num_envs} parallel environments for increased speed.")
 
     # Train the model
     try:
@@ -189,7 +215,7 @@ def train_model(total_timesteps=1000000, model_dir="models_with_opening_book",
         print(f"Training was interrupted: {e}")
 
     # Save the final model
-    final_model_path = f"{model_dir}/chess_with_opening_book_final"
+    final_model_path = f"{model_dir}/chess_tactical_final"
     model.save(final_model_path)
     print(f"Model saved to {final_model_path}")
 
@@ -197,17 +223,23 @@ def train_model(total_timesteps=1000000, model_dir="models_with_opening_book",
     print(f"Training metrics saved to {log_dir}/plots/ and {log_dir}/csv/")
     print(f"To view TensorBoard logs, run: tensorboard --logdir={log_dir}")
 
-    # print("\nKey improvements made:")
-    # print("1. Incorporated opening book knowledge from established chess theory")
-    # print("2. Provided bonus rewards for following opening theory")
-    # print("3. Added action masking to ensure only legal moves are considered")
-    # print("4. Implemented CNN-based neural network specifically designed for chess")
-    # print("5. Added environment wrapper to map out-of-range actions to legal moves")
-    # print("6. Optimized exploration parameters for better learning")
-    # print("7. Balanced reward signals for improved strategic play")
-    # print("8. Detailed metrics tracking for better analysis") 
+    print("\nKey improvements made:")
+    print("1. Incorporated opening book knowledge from established chess theory")
+    print("2. Added penalties for hanging pieces")
+    print("3. Increased rewards for capturing undefended pieces")
+    print("4. Added rewards for defending threatened pieces")
+    print("5. Improved action masking to ensure only legal moves are considered")
+    print("6. Implemented CNN-based neural network specifically designed for chess")
+    print("7. Optimized exploration parameters for better learning")
+    print("8. Detailed metrics tracking for better analysis") 
+    print("9. Parallelized training with multiple environments for faster learning")
     
     return model
 
 if __name__ == "__main__":
-    train_model() 
+    # Determine number of environments based on CPU cores (leave some for system)
+    import multiprocessing
+    num_cpus = multiprocessing.cpu_count()
+    num_envs = max(2, num_cpus - 2)  # Use at least 2, but leave 2 cores for system
+    
+    train_model(num_envs=num_envs) 

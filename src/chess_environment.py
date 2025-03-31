@@ -80,6 +80,15 @@ class ChessEnvWithOpeningBook(gym.Env):
         # Store material before move for reward calculation
         material_before = self.calculate_material_balance()
         
+        # Cache which squares are attacked by each side for faster reward calculation
+        self._white_attacks = set()
+        self._black_attacks = set()
+        for square in chess.SQUARES:
+            if self.board.is_attacked_by(chess.WHITE, square):
+                self._white_attacks.add(square)
+            if self.board.is_attacked_by(chess.BLACK, square):
+                self._black_attacks.add(square)
+        
         # Execute the move
         self.board.push(move)
         self.move_count += 1
@@ -186,9 +195,11 @@ class ChessEnvWithOpeningBook(gym.Env):
         # 7. Center control reward (scaled down)
         center_control = 0
         center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+        current_color = not self.board.turn  # Our color (just moved)
+        
         for square in center_squares:
             piece = self.board.piece_at(square)
-            if piece is not None and piece.color == (not self.board.turn):  # Check if our piece
+            if piece is not None and piece.color == current_color:
                 center_control += 0.05
         rewards["center_control"] = center_control
         
@@ -196,7 +207,12 @@ class ChessEnvWithOpeningBook(gym.Env):
         development = 0
         if self.move_count < 10:  # Early game
             # Knights and bishops developed
-            for square in [chess.B1, chess.G1, chess.C1, chess.F1]:  # White starting positions
+            if current_color == chess.WHITE:
+                development_squares = [chess.B1, chess.G1, chess.C1, chess.F1]  # White starting positions
+            else:
+                development_squares = [chess.B8, chess.G8, chess.C8, chess.F8]  # Black starting positions
+                
+            for square in development_squares:
                 piece = self.board.piece_at(square)
                 if piece is None:  # Piece has moved
                     development += 0.05
@@ -223,16 +239,69 @@ class ChessEnvWithOpeningBook(gym.Env):
         
         # 11. Pawn structure - reward for protected pawns
         pawn_structure = 0
-        pawn_squares = [sq for sq in chess.SQUARES if self.board.piece_at(sq) and 
-                       self.board.piece_at(sq).piece_type == chess.PAWN]
-        for sq in pawn_squares:
-            piece = self.board.piece_at(sq)
-            if piece and piece.color == (not self.board.turn):  # Our pawns
-                # Check if pawn is protected
-                if self.board.is_attacked_by(not self.board.turn, sq):
+        current_attacks = self._white_attacks if current_color == chess.WHITE else self._black_attacks
+        
+        for square in chess.SQUARES:
+            piece = self.board.piece_at(square)
+            if piece and piece.color == current_color and piece.piece_type == chess.PAWN:
+                if square in current_attacks:  # Pawn is protected
                     pawn_structure += 0.02
         rewards["pawn_structure"] = pawn_structure
+
+        # 12. Tactical capture - reward for capturing undefended pieces
+        if self.board.is_capture(move):  # This move captured a piece
+            captured_square = move.to_square
+            captured_piece_type = self.board.piece_type_at(captured_square)
+            
+            # We need to temporarily undo the move to check if the captured piece was defended
+            self.board.pop()
+            opponent_color = not current_color
+            opponent_attacks = self._black_attacks if current_color == chess.WHITE else self._white_attacks
+            was_defended = move.to_square in opponent_attacks
+            
+            # Get the captured piece value
+            captured_piece = self.board.piece_at(move.to_square)
+            captured_value = self.piece_value(captured_piece) if captured_piece else 0
+            
+            # Redo the move
+            self.board.push(move)
+            
+            if not was_defended and captured_value > 0:
+                # Extra reward for capturing undefended piece
+                rewards["tactical_capture"] = captured_value * 0.3
                 
+        # 13. Defense reward - reward for defending threatened pieces
+        defense_reward = 0
+        opponent_color = self.board.turn  # Opponent's color (about to move)
+        opponent_attacks = self._black_attacks if opponent_color == chess.BLACK else self._white_attacks
+        our_attacks = self._white_attacks if current_color == chess.WHITE else self._black_attacks
+        
+        # Find our pieces that are under attack by opponent
+        for square in chess.SQUARES:
+            piece = self.board.piece_at(square)
+            if piece and piece.color == current_color and square in opponent_attacks:
+                # This piece is threatened
+                if square in our_attacks:
+                    # And it's defended by us
+                    defense_reward += self.piece_value(piece) * 0.1
+        
+        rewards["defense"] = defense_reward
+        
+        # 14. Hanging pieces penalty - penalize having hanging pieces
+        hanging_penalty = 0
+        for square in chess.SQUARES:
+            piece = self.board.piece_at(square)
+            if piece and piece.color == self.board.turn:  # Our piece (about to move)
+                in_opponent_attacks = square in (self._white_attacks if current_color == chess.BLACK else self._black_attacks)
+                in_our_attacks = square in (self._black_attacks if current_color == chess.BLACK else self._white_attacks)
+                
+                if in_opponent_attacks and not in_our_attacks:
+                    # It's hanging! Apply penalty based on piece value
+                    piece_value = self.piece_value(piece)
+                    hanging_penalty -= piece_value * 0.2  # Scale based on value
+        
+        rewards["hanging_penalty"] = hanging_penalty
+        
         # Combine all rewards with appropriate scaling
         total_reward = sum(rewards.values())
         
@@ -258,6 +327,21 @@ class ChessEnvWithOpeningBook(gym.Env):
         values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
                   chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
         return values.get(piece.piece_type, 0)
+
+    # Function to detect hanging pieces
+    def detect_hanging_pieces(self):
+        hanging_penalty = 0
+        for square in chess.SQUARES:
+            piece = self.board.piece_at(square)
+            if piece and piece.color == self.board.turn:  # Our piece
+                # Check if under attack by opponent
+                if self.board.is_attacked_by(not self.board.turn, square):
+                    # Check if defended by our pieces
+                    if not self.board.is_attacked_by(self.board.turn, square):
+                        # It's hanging! Apply penalty based on piece value
+                        piece_value = self.piece_value(piece)
+                        hanging_penalty -= piece_value * 0.2  # Scale based on value
+        return hanging_penalty
 
 # Test the environment
 if __name__ == "__main__":
