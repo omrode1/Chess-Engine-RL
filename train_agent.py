@@ -197,15 +197,15 @@ def train_model(total_timesteps=1000000, model_dir="models_with_opening_book",
     print(f"Training metrics saved to {log_dir}/plots/ and {log_dir}/csv/")
     print(f"To view TensorBoard logs, run: tensorboard --logdir={log_dir}")
 
-    print("\nKey improvements made:")
-    print("1. Incorporated opening book knowledge from established chess theory")
-    print("2. Provided bonus rewards for following opening theory")
-    print("3. Added action masking to ensure only legal moves are considered")
-    print("4. Implemented CNN-based neural network specifically designed for chess")
-    print("5. Added environment wrapper to map out-of-range actions to legal moves")
-    print("6. Optimized exploration parameters for better learning")
-    print("7. Balanced reward signals for improved strategic play")
-    print("8. Detailed metrics tracking for better analysis") 
+    # print("\nKey improvements made:")
+    # print("1. Incorporated opening book knowledge from established chess theory")
+    # print("2. Provided bonus rewards for following opening theory")
+    # print("3. Added action masking to ensure only legal moves are considered")
+    # print("4. Implemented CNN-based neural network specifically designed for chess")
+    # print("5. Added environment wrapper to map out-of-range actions to legal moves")
+    # print("6. Optimized exploration parameters for better learning")
+    # print("7. Balanced reward signals for improved strategic play")
+    # print("8. Detailed metrics tracking for better analysis") 
     
     return model
 
