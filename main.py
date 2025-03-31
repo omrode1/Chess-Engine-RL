@@ -70,7 +70,7 @@ def main():
         )
         
     elif args.command == 'test':
-        print("Starting testing mode...")
+        print("Starting testing mode...")   
         # Import test module here to avoid importing everything at startup
         from test_agent import test_model
         
