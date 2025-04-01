@@ -4,9 +4,14 @@ import gym
 import numpy as np
 from gym import spaces
 from utils.opening_book import OpeningBook
+import random
 
 class ChessEnvWithOpeningBook(gym.Env):
-    def __init__(self, use_opening_book=True, opening_book_moves=10, opening_bonus=0.5):
+    """
+    Chess environment with opening book and curriculum learning capabilities.
+    """
+    def __init__(self, use_opening_book=True, opening_book_moves=10, opening_bonus=0.5, 
+                 curriculum_level=0, start_position=None):
         """
         Chess environment with opening book knowledge
         
@@ -14,45 +19,111 @@ class ChessEnvWithOpeningBook(gym.Env):
             use_opening_book: Whether to use the opening book
             opening_book_moves: Maximum number of moves to follow the opening book
             opening_bonus: Reward bonus for following the opening book
+            curriculum_level: Level of difficulty for curriculum learning
+            start_position: Optional FEN string for custom start position
         """
-        super(ChessEnvWithOpeningBook, self).__init__()
-        self.board = chess.Board()
-
-        # Observation Space (12x8x8 board representation)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(12, 8, 8), dtype=np.float32)
-
-        # Action Space - maximum reasonable number of moves in any position is ~218
-        self.action_space = spaces.Discrete(218)
+        super().__init__()
         
-        # Cache for legal moves (updated on reset and step)
-        self.legal_moves_list = list(self.board.legal_moves)
+        # Curriculum learning parameters
+        self.curriculum_level = curriculum_level  # 0=full game, 1=midgame, 2=tactical endgame, 3=puzzle
+        self.start_position = start_position  # Optional FEN string for custom start position
         
-        # Tracking variables for improved rewards
-        self.move_count = 0
-        self.material_history = []
-        self.position_history = []  # For tracking repeated positions
-        self.invalid_moves_count = 0
+        # Set up the board based on curriculum level
+        self.setup_curriculum()
         
-        # Initialize material balance
-        self.last_material_balance = self.calculate_material_balance()
-        
-        # Opening book parameters
-        self.use_opening_book = use_opening_book
+        # Opening book settings
+        self.use_opening_book = use_opening_book and self.curriculum_level == 0  # Only use opening book in full games
         self.opening_book_moves = opening_book_moves
         self.opening_bonus = opening_bonus
-        self.opening_book = OpeningBook() if use_opening_book else None
         self.followed_book_move = False
-
-    def reset(self):
-        """Reset the board to the starting position"""
-        self.board.reset()
+        
+        if self.use_opening_book:
+            from src.chess_opening_book import OpeningBook
+            self.opening_book = OpeningBook()
+        
+        # State tracking for self-play and rewards
         self.legal_moves_list = list(self.board.legal_moves)
         self.move_count = 0
-        self.material_history = []
         self.position_history = []
         self.invalid_moves_count = 0
         self.last_material_balance = self.calculate_material_balance()
-        self.followed_book_move = False
+        self.material_history = [self.last_material_balance]
+        
+        # Set up the spaces
+        # 12 piece types (6 white, 6 black) on an 8x8 board
+        self.observation_space = spaces.Box(
+            low=0, high=1, shape=(12, 8, 8), dtype=np.float32
+        )
+        
+        # Action space is the maximum number of legal moves in chess (~218)
+        self.action_space = spaces.Discrete(218)
+        
+        # Caches for performance
+        self._white_attacks = set()
+        self._black_attacks = set()
+    
+    def setup_curriculum(self):
+        """Set up board based on curriculum level"""
+        if self.start_position:
+            # Use custom FEN position if provided
+            self.board = chess.Board(self.start_position)
+        elif self.curriculum_level == 0:
+            # Full game - start from standard position
+            self.board = chess.Board()
+        elif self.curriculum_level == 1:
+            # Midgame positions - start from common midgame positions
+            midgame_positions = [
+                # Open game with development
+                "r1bqkbnr/ppp2ppp/2np4/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+                # Semi-open game
+                "rnbqkb1r/pp3ppp/2p1pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 6",
+                # Closed position
+                "r1bqk2r/ppp2ppp/2n1pn2/3p4/1bPP4/2NBP3/PP3PPP/R1BQK1NR w KQkq - 0 7",
+                # Open with early queen exchange
+                "rnb1kbnr/pppp1ppp/8/4p3/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 0 4",
+            ]
+            self.board = chess.Board(random.choice(midgame_positions))
+        elif self.curriculum_level == 2:
+            # Endgame positions - fewer pieces, clearer objectives
+            endgame_positions = [
+                # Rook endgame
+                "8/5pk1/7p/8/5P2/5K2/7P/4R3 w - - 0 1",
+                # Pawn endgame
+                "8/5p2/5k2/8/5P2/8/5K2/8 w - - 0 1",
+                # Queen vs rook endgame
+                "8/8/5k2/8/8/3Q4/5K2/7r w - - 0 1",
+                # Bishop and knight checkmate
+                "8/8/5k2/8/8/3B4/5K2/5N2 w - - 0 1"
+            ]
+            self.board = chess.Board(random.choice(endgame_positions))
+        elif self.curriculum_level == 3:
+            # Tactical puzzles - positions with forced tactical solutions
+            tactical_positions = [
+                # Fork opportunity
+                "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/3P1P2/PPP3PP/RNBQKBNR w KQkq - 0 1",
+                # Pin opportunity
+                "r1bqkb1r/ppp2ppp/2n2n2/3pp3/4P3/3P1N2/PPP2PPP/RNBQKB1R w KQkq - 0 1",
+                # Discovered attack
+                "r1bqkb1r/ppp2ppp/2n2n2/3p4/3P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 1",
+                # Mate in 1
+                "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1"
+            ]
+            self.board = chess.Board(random.choice(tactical_positions))
+        
+        # Update legal moves list after setting up the board
+        self.legal_moves_list = list(self.board.legal_moves)
+    
+    def reset(self):
+        """Reset the environment to start a new game, using curriculum if specified"""
+        self.setup_curriculum()
+        
+        self.move_count = 0
+        self.position_history = []
+        self.invalid_moves_count = 0
+        self.last_material_balance = self.calculate_material_balance()
+        self.material_history = [self.last_material_balance]
+        
+        self.legal_moves_list = list(self.board.legal_moves)
         
         return self.board_to_tensor()
 
@@ -169,30 +240,30 @@ class ChessEnvWithOpeningBook(gym.Env):
         rewards = {}
         
         # 1. Basic valid move reward (small positive to encourage any valid move)
-        rewards["valid_move"] = 0.1
+        rewards["valid_move"] = 0.2  # Increased from 0.1
         
         # 2. Material change reward (normalized to be between -1 and 1 for most cases)
         material_change = material_after - material_before
-        rewards["material"] = material_change * 0.1  # Scale down material to not overwhelm other rewards
+        rewards["material"] = material_change * 0.2  # Doubled from 0.1 to amplify material gains
         
         # 3. Opening book bonus (if move follows the opening book)
         if self.followed_book_move:
-            rewards["opening_book"] = self.opening_bonus
+            rewards["opening_book"] = self.opening_bonus * 1.5  # Increased to encourage book moves
         else:
             rewards["opening_book"] = 0.0
         
         # 4. Checkmate (large reward/penalty)
         if self.board.is_checkmate():
-            rewards["checkmate"] = 5.0 if not self.board.turn else -5.0
+            rewards["checkmate"] = 10.0 if not self.board.turn else -5.0  # Doubled checkmate reward
             
         # 5. Check (small reward)
-        rewards["check"] = 0.2 if self.board.is_check() else 0
+        rewards["check"] = 0.3 if self.board.is_check() else 0  # Increased from 0.2
             
         # 6. Stalemate is slightly negative
         if self.board.is_stalemate():
-            rewards["stalemate"] = -1.0
+            rewards["stalemate"] = -0.5  # Reduced from -1.0
             
-        # 7. Center control reward (scaled down)
+        # 7. Center control reward (scaled up)
         center_control = 0
         center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
         current_color = not self.board.turn  # Our color (just moved)
@@ -200,7 +271,7 @@ class ChessEnvWithOpeningBook(gym.Env):
         for square in center_squares:
             piece = self.board.piece_at(square)
             if piece is not None and piece.color == current_color:
-                center_control += 0.05
+                center_control += 0.1  # Doubled from 0.05
         rewards["center_control"] = center_control
         
         # 8. Development reward (early game)
@@ -215,27 +286,27 @@ class ChessEnvWithOpeningBook(gym.Env):
             for square in development_squares:
                 piece = self.board.piece_at(square)
                 if piece is None:  # Piece has moved
-                    development += 0.05
+                    development += 0.1  # Doubled from 0.05
                     
             # Castling (big early bonus)
             if isinstance(move, chess.Move):
                 if move.from_square == chess.E1 and move.to_square in [chess.C1, chess.G1]:
-                    development += 0.5  # Castling is a significant achievement
+                    development += 1.0  # Doubled from 0.5
                 elif move.from_square == chess.E8 and move.to_square in [chess.C8, chess.G8]:
-                    development += 0.5
+                    development += 1.0  # Doubled from 0.5
         rewards["development"] = development
                 
         # 9. Repetition penalty (scaled appropriately)
         repetition = 0
         if self.board.is_repetition(2):
-            repetition = -0.3
+            repetition = -0.2  # Reduced from -0.3
         elif self.board.is_repetition(3):
-            repetition = -0.8
+            repetition = -0.4  # Reduced from -0.8
         rewards["repetition"] = repetition
         
         # 10. Piece activity - reward for having more moves available
         mobility = len(self.legal_moves_list) / 30.0  # Normalize by dividing by typical move count
-        rewards["mobility"] = min(0.5, mobility * 0.1)  # Cap at 0.5 and scale down
+        rewards["mobility"] = min(0.8, mobility * 0.2)  # Doubled cap and scaling
         
         # 11. Pawn structure - reward for protected pawns
         pawn_structure = 0
@@ -245,7 +316,7 @@ class ChessEnvWithOpeningBook(gym.Env):
             piece = self.board.piece_at(square)
             if piece and piece.color == current_color and piece.piece_type == chess.PAWN:
                 if square in current_attacks:  # Pawn is protected
-                    pawn_structure += 0.02
+                    pawn_structure += 0.04  # Doubled from 0.02
         rewards["pawn_structure"] = pawn_structure
 
         # 12. Tactical capture - reward for capturing undefended pieces
@@ -268,7 +339,10 @@ class ChessEnvWithOpeningBook(gym.Env):
             
             if not was_defended and captured_value > 0:
                 # Extra reward for capturing undefended piece
-                rewards["tactical_capture"] = captured_value * 0.3
+                rewards["tactical_capture"] = captured_value * 0.6  # Doubled from 0.3
+            else:
+                # Still give a small reward for any capture
+                rewards["capture"] = captured_value * 0.2  # New reward for any capture
                 
         # 13. Defense reward - reward for defending threatened pieces
         defense_reward = 0
@@ -283,11 +357,11 @@ class ChessEnvWithOpeningBook(gym.Env):
                 # This piece is threatened
                 if square in our_attacks:
                     # And it's defended by us
-                    defense_reward += self.piece_value(piece) * 0.1
+                    defense_reward += self.piece_value(piece) * 0.2  # Doubled from 0.1
         
         rewards["defense"] = defense_reward
         
-        # 14. Hanging pieces penalty - penalize having hanging pieces
+        # 14. Hanging pieces penalty - penalize having hanging pieces (but reduce penalty)
         hanging_penalty = 0
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
@@ -298,9 +372,13 @@ class ChessEnvWithOpeningBook(gym.Env):
                 if in_opponent_attacks and not in_our_attacks:
                     # It's hanging! Apply penalty based on piece value
                     piece_value = self.piece_value(piece)
-                    hanging_penalty -= piece_value * 0.2  # Scale based on value
+                    hanging_penalty -= piece_value * 0.1  # Reduced from 0.2
         
         rewards["hanging_penalty"] = hanging_penalty
+        
+        # 15. Add small positive rewards for safe moves (no new pieces hanging)
+        if hanging_penalty == 0:
+            rewards["safe_move"] = 0.1  # New reward for not hanging pieces
         
         # Combine all rewards with appropriate scaling
         total_reward = sum(rewards.values())
