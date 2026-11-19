@@ -103,3 +103,12 @@ def test_default_net_inference_speed_on_gpu():
         torch.cuda.synchronize()
     ms = (time.perf_counter() - t0) / 20 * 1000
     assert ms < 15, f"{ms:.1f} ms"
+
+
+def test_cpu_net_player_limits_threads():
+    before = torch.get_num_threads()
+    try:
+        NetPlayer(model=ChessNet(SMALL), device="cpu", threads=2)
+        assert torch.get_num_threads() == 2
+    finally:
+        torch.set_num_threads(before)

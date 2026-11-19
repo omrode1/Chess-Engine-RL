@@ -1,0 +1,19 @@
+{
+  "stop_reason": "completed",
+  "steps": 86148,
+  "total_steps": 86148,
+  "positions_seen": 88215552,
+  "hours": 3.339041949217223,
+  "best_val_loss": 2.233960971540334,
+  "final_val": {
+    "policy_loss": 1.4166473648986038,
+    "value_loss": 0.8173136066417305,
+    "top1": 0.5332230548469388,
+    "top5": 0.9053730867346939,
+    "value_calibration_error": 0.011247442662715912,
+    "positions": 200704,
+    "step": 86148,
+    "hours": 3.339012090961388
+  },
+  "params": 3603148
+}

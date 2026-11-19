@@ -68,7 +68,14 @@ Reference ladder (100 games each; Elo of the first player relative to the second
 | random vs Stockfish 19 @ UCI_Elo 1320 | 0 / 1 / 99 | −920 [−∞, −730] |
 | greedy vs Stockfish 19 @ UCI_Elo 1320 | 0 / 2 / 98 | −798 [−∞, −646] |
 
-The bar for M4: the new network, with no search, scores ≥50% against Stockfish @ 1320.
+**M4 result:** the raw network (one call per move, no search) scores **85.5% vs Stockfish @ 1320** and about even with Stockfish @ 1500 (≈1550 on that scale), after 3.3 GPU-hours on the laptop. Full report: [`results/m4/`](results/m4/README.md).
+
+| Raw M4 network vs | W / D / L | Elo [95% CI] |
+|---|---|---|
+| v0 baseline | 98 / 2 / 0 | +798 [+646, +∞] |
+| Stockfish 19 @ 1320 | 84 / 3 / 13 | +308 [+228, +429] |
+| Stockfish 19 @ 1500 | 44 / 18 / 38 | +21 [−41, +84] |
+| Stockfish 19 @ 1700 | 26 / 25 / 49 | −81 [−145, −23] |
 
 Tactics: the [Win At Chess](src/chess_rl/eval/suites/NOTICE.md) suite (300 positions, one move each), recorded in [`results/tactics.csv`](results/tactics.csv):
 
@@ -81,6 +88,7 @@ uv run chess-rl tactics run --player greedy --suite wac
 | random | 14 / 300 (4.7%) |
 | greedy (one-ply material) | 41 / 300 (13.7%) |
 | v0 baseline | 8 / 300 (2.7%) |
+| M4 raw network (no search) | 50 / 300 (16.7%) |
 | Stockfish 19 @ UCI_Elo 1320, 0.1 s/move | 71 / 300 (23.7%) |
 | Stockfish 19 full strength, 0.1 s/move | 266 / 300 (88.7%) |
 
