@@ -322,11 +322,28 @@ def train_model(
     return model
 
 
+def default_num_envs() -> int:
+    """Parallel envs sized for the target laptop (20 cores, 15 GB RAM): each worker process imports torch."""
+    return max(2, min(8, (os.cpu_count() or 4) - 2))
+
+
 if __name__ == "__main__":
-    # Determine number of environments based on CPU cores (leave some for system)
-    import multiprocessing
+    import argparse
 
-    num_cpus = multiprocessing.cpu_count()
-    num_envs = max(2, num_cpus - 2)  # Use at least 2, but leave 2 cores for system
+    parser = argparse.ArgumentParser(description="Train the v0 tactical DQN agent with curriculum learning")
+    parser.add_argument("--timesteps", type=int, default=3_000_000, help="Total timesteps across all stages")
+    parser.add_argument("--num-envs", type=int, default=default_num_envs(), help="Parallel environments")
+    parser.add_argument("--model-dir", default="tactical_models")
+    parser.add_argument("--log-dir", default="tactical_logs")
+    parser.add_argument("--no-opening-book", action="store_true")
+    parser.add_argument("--no-curriculum", action="store_true")
+    args = parser.parse_args()
 
-    train_model(num_envs=num_envs)
+    train_model(
+        total_timesteps=args.timesteps,
+        model_dir=args.model_dir,
+        log_dir=args.log_dir,
+        use_opening_book=not args.no_opening_book,
+        num_envs=args.num_envs,
+        use_curriculum=not args.no_curriculum,
+    )
