@@ -66,7 +66,7 @@ Chess-Engine-RL/
 │   └── custom_callbacks.py     # Custom callbacks for metrics and logging
 ├── main.py                     # Main entry point for the project
 ├── train_agent.py              # Script to train the RL agent
-├── test_agent.py               # Script to test the trained agent
+├── eval_agent.py               # Script to evaluate a trained agent
 ├── models_with_opening_book/   # Saved model checkpoints
 ├── logs_with_opening_book/     # Training logs
 └── pgn_games/                  # Saved chess games in PGN format
