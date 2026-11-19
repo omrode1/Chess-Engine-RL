@@ -1,0 +1,12 @@
+# M4 pretraining set: both players >= 1800, blitz/rapid/classical, ~30M positions.
+# Usage: uv run chess-rl data build --config configs/data/strength.yaml
+name: strength-1800-2026-10
+month: "2026-10"
+min_elo: 1800
+time_classes: blitz,rapid,classical
+target_positions: 30_000_000
+shard_size: 1_000_000
+val_every: 50
+workers: 12
+out_root: data/lichess
+max_gb: 12

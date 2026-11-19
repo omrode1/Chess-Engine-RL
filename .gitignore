@@ -51,4 +51,4 @@ pgn_games/
 *.pgn
 
 # Datasets (never committed)
-data/
+/data/
