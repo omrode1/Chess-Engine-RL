@@ -43,9 +43,9 @@ Each run appends a record to `results/runs.jsonl`: git commit, config, seed, har
 ## Layout
 
 ```
-src/chess_rl/      the engine package: config, run logging, CLI (encoding, model, search, ... to come)
+src/chess_rl/      the engine package: board/move encoding, opening book, curriculum positions,
+                   config, run logging, CLI (model, search, ... to come)
 baseline/          frozen v0 DQN pipeline (removed in M5)
-utils/             opening book (moving into chess_rl in M2)
 configs/           YAML run configs
 results/           tracked run records and evaluation results
 docs/              post-mortem, reports

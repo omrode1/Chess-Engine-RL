@@ -21,6 +21,6 @@
 - Goal: an engine built to beat one specific person (the owner, chess.com rapid ~1200) on laptop-class compute. It models him (Om-sim) and exploits that model in search and RL. The headline question: how much less compute does modelling the opponent need? The project is for a portfolio aimed at both technical and broad audiences.
 - Roadmap: GitHub milestones M0–M8 and their issues. Only model players who opt in (the owner by default).
 - v0 baseline: `baseline/train_tactical_agent.py` (canonical v0) and `baseline/train_agent.py` (older). Both are frozen and removed in M5 (#27).
-- Keep the opening book (`utils/opening_book.py`) and the curriculum positions (`baseline/chess_environment.py`) as they are; #15 moves them into `chess_rl`.
+- Keep the opening book (`chess_rl/openings.py`) and the curriculum positions (`chess_rl/positions.py`) as they are (owner's request). Only the false 'Mate in 1' label was corrected.
 - Every training/eval run goes through `chess_rl.runlog.track_run`, which appends to the tracked `results/runs.jsonl`. Tests redirect it with `CHESS_RL_RUNS_FILE`.
 - Target hardware: an RTX 3050 laptop GPU (6 GB), 20 CPU cores, 15 GB RAM. Size defaults (batch size, number of environments, network size) to fit this machine.
