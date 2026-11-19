@@ -13,7 +13,20 @@ from chess_rl.system import git_info, hardware_info, pick_device, seed_everythin
 
 
 def _cmd_info(args: argparse.Namespace) -> int:
-    info = {"versions": versions(), "hardware": hardware_info(), "device": pick_device("auto"), "git": git_info()}
+    from chess_rl.eval.stockfish import StockfishNotFound, engine_name, find_stockfish
+
+    try:
+        sf_path = find_stockfish()
+        stockfish = {"path": str(sf_path), "name": engine_name(sf_path)}
+    except StockfishNotFound as e:
+        stockfish = {"path": None, "error": str(e)}
+    info = {
+        "versions": versions(),
+        "hardware": hardware_info(),
+        "device": pick_device("auto"),
+        "git": git_info(),
+        "stockfish": stockfish,
+    }
     print(json.dumps(info, indent=2))
     return 0
 
@@ -77,6 +90,18 @@ def _cmd_baseline_eval_random(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_stockfish(args: argparse.Namespace) -> int:
+    from chess_rl.eval import stockfish
+
+    if args.stockfish_command == "install":
+        path = stockfish.install(force=args.force)
+        print(f"{stockfish.engine_name(path)} installed at {path}")
+    else:
+        path = stockfish.find_stockfish()
+        print(path)
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -88,6 +113,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("info", help="show versions, hardware, device, and git state")
     p.set_defaults(func=_cmd_info)
+
+    p = sub.add_parser("stockfish", help="install or locate the pinned Stockfish used for evaluation")
+    ssub = p.add_subparsers(dest="stockfish_command", required=True)
+    inst = ssub.add_parser("install", help="download and verify the pinned official release (no sudo)")
+    inst.add_argument("--force", action="store_true", help="reinstall even if present")
+    ssub.add_parser("path", help="print the Stockfish binary that will be used")
+    p.set_defaults(func=_cmd_stockfish)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)
