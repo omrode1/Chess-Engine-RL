@@ -6,6 +6,8 @@ import gym
 import numpy as np
 from gym import spaces
 
+from utils.opening_book import OpeningBook
+
 
 class ChessEnvWithOpeningBook(gym.Env):
     """
@@ -41,8 +43,6 @@ class ChessEnvWithOpeningBook(gym.Env):
         self.followed_book_move = False
 
         if self.use_opening_book:
-            from src.chess_opening_book import OpeningBook
-
             self.opening_book = OpeningBook()
 
         # State tracking for self-play and rewards
