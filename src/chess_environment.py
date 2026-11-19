@@ -1,10 +1,10 @@
+import random
+
 import chess
 import chess.pgn
 import gym
 import numpy as np
 from gym import spaces
-from utils.opening_book import OpeningBook
-import random
 
 
 class ChessEnvWithOpeningBook(gym.Env):
@@ -291,9 +291,12 @@ class ChessEnvWithOpeningBook(gym.Env):
 
             # Castling (big early bonus)
             if isinstance(move, chess.Move):
-                if move.from_square == chess.E1 and move.to_square in [chess.C1, chess.G1]:
-                    development += 1.0  # Doubled from 0.5
-                elif move.from_square == chess.E8 and move.to_square in [chess.C8, chess.G8]:
+                if (
+                    move.from_square == chess.E1
+                    and move.to_square in [chess.C1, chess.G1]
+                    or move.from_square == chess.E8
+                    and move.to_square in [chess.C8, chess.G8]
+                ):
                     development += 1.0  # Doubled from 0.5
         rewards["development"] = development
 
@@ -322,9 +325,6 @@ class ChessEnvWithOpeningBook(gym.Env):
 
         # 12. Tactical capture - reward for capturing undefended pieces
         if self.board.is_capture(move):  # This move captured a piece
-            captured_square = move.to_square
-            captured_piece_type = self.board.piece_type_at(captured_square)
-
             # We need to temporarily undo the move to check if the captured piece was defended
             self.board.pop()
             opponent_color = not current_color

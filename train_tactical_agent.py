@@ -1,22 +1,18 @@
+import os
+
 import gym
 import torch
-import chess
-import chess.pgn
-import os
-import numpy as np
-from stable_baselines3 import DQN
-from stable_baselines3.common.callbacks import CheckpointCallback
-from src.chess_environment import ChessEnvWithOpeningBook
-from utils.custom_callbacks import MetricsLogger, ActionQualityMonitor
-from stable_baselines3.common.callbacks import CallbackList
-from stable_baselines3.dqn.policies import DQNPolicy
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecMonitor
-from stable_baselines3.common.monitor import Monitor
-from torch import nn
 import torch.nn.functional as F
 from gym import spaces
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from stable_baselines3 import DQN
+from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.dqn.policies import DQNPolicy
+from torch import nn
+
+from src.chess_environment import ChessEnvWithOpeningBook
+from utils.custom_callbacks import ActionQualityMonitor, MetricsLogger
 
 
 # Custom neural network that will be used as policy
@@ -133,7 +129,6 @@ class MaskedDQNPolicy(DQNPolicy):
             # Extract observations and rewards
             observations = replay_data.observations
             rewards = replay_data.rewards
-            dones = replay_data.dones
 
             # Predict values
             values = self.q_net.features_extractor.predict_value(observations).squeeze()
@@ -245,23 +240,23 @@ def train_model(
 
     print(f"Training with {'curriculum learning' if use_curriculum else 'standard training'}")
     if use_curriculum:
-        print(f"Curriculum stages:")
+        print("Curriculum stages:")
         for stage in curriculum_stages:
             print(f"  - {stage['name']}: {stage['timesteps']} timesteps (level {stage['level']})")
 
-    # Start with first curriculum level
-    current_stage = curriculum_stages[0]
     current_model = None
 
     # Train through each curriculum stage
-    remaining_timesteps = total_timesteps
     for i, stage in enumerate(curriculum_stages):
         print(f"\n{'=' * 50}")
         print(f"Starting curriculum stage {i + 1}/{len(curriculum_stages)}: {stage['name']}")
         print(f"{'=' * 50}")
 
         # Create vectorized environment with the current curriculum level
-        env_fns = [lambda level=stage["level"]: make_env(i, use_opening_book, level=level)() for i in range(num_envs)]
+        env_fns = [
+            lambda level=stage["level"], rank=i: make_env(rank, use_opening_book, level=level)()
+            for i in range(num_envs)
+        ]
         env = SubprocVecEnv(env_fns, start_method="spawn")
 
         # Add monitoring wrapper at the vectorized environment level

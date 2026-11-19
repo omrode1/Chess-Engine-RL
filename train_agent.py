@@ -1,20 +1,16 @@
+import os
+
 import gym
 import torch
-import chess
-import chess.pgn
-import os
-import numpy as np
-from stable_baselines3 import DQN
-from stable_baselines3.common.callbacks import CheckpointCallback
-from src.chess_environment import ChessEnvWithOpeningBook
-from utils.custom_callbacks import MetricsLogger, ActionQualityMonitor
-from stable_baselines3.common.callbacks import CallbackList
-from stable_baselines3.dqn.policies import DQNPolicy
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from torch import nn
-import torch.nn.functional as F
 from gym import spaces
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from stable_baselines3 import DQN
+from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.dqn.policies import DQNPolicy
+from torch import nn
+
+from src.chess_environment import ChessEnvWithOpeningBook
+from utils.custom_callbacks import ActionQualityMonitor, MetricsLogger
 
 
 # Custom neural network that will be used as policy

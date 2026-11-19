@@ -1,12 +1,12 @@
-import chess
-import chess.pgn
-import gym
-import numpy as np
-import time
 import argparse
 import os
+import time
 from datetime import datetime
+
+import chess
+import chess.pgn
 from stable_baselines3 import DQN
+
 from src.chess_environment import ChessEnvWithOpeningBook
 
 

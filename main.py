@@ -7,7 +7,6 @@ It provides a command-line interface to train or test the agent.
 """
 
 import argparse
-import os
 import sys
 
 

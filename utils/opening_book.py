@@ -1,7 +1,7 @@
+import random
+
 import chess
 import chess.pgn
-import random
-from typing import Dict, List, Optional, Tuple
 
 
 class OpeningBook:
@@ -22,7 +22,7 @@ class OpeningBook:
 
         # Dictionary to store opening moves
         # Format: fen string (position) -> list of (move, weight) tuples
-        self.book: Dict[str, List[Tuple[chess.Move, float]]] = {}
+        self.book: dict[str, list[tuple[chess.Move, float]]] = {}
 
         # Populate the opening book with standard openings
         self._populate_opening_book()
@@ -213,7 +213,7 @@ class OpeningBook:
             weight=0.5,
         )
 
-    def _add_opening(self, uci_moves: List[str], weight: float = 1.0):
+    def _add_opening(self, uci_moves: list[str], weight: float = 1.0):
         """
         Add an opening to the book using a list of UCI move strings.
 
@@ -224,7 +224,7 @@ class OpeningBook:
         board = chess.Board()
 
         # Apply each move and add the resulting position to the book
-        for i, uci in enumerate(uci_moves):
+        for uci in uci_moves:
             # Get the position before the move
             fen_before = board.fen().split(" ")[0]  # Just the piece positions
 
@@ -246,7 +246,7 @@ class OpeningBook:
                 # Stop if we encounter an illegal move in the opening
                 break
 
-    def get_move(self, board: chess.Board) -> Optional[chess.Move]:
+    def get_move(self, board: chess.Board) -> chess.Move | None:
         """
         Get a move from the opening book for the current position.
 

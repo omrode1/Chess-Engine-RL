@@ -1,12 +1,11 @@
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-from stable_baselines3.common.callbacks import BaseCallback
-import pandas as pd
-from collections import Counter, deque
 import csv
-from stable_baselines3.common.results_plotter import ts2xy, load_results
-import torch
+import os
+from collections import Counter
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from stable_baselines3.common.callbacks import BaseCallback
 
 
 class MetricsLogger(BaseCallback):
@@ -18,7 +17,7 @@ class MetricsLogger(BaseCallback):
     """
 
     def __init__(self, log_dir="logs", verbose=0):
-        super(MetricsLogger, self).__init__(verbose)
+        super().__init__(verbose)
         self.log_dir = log_dir
 
         # Create directories for different visualizations
@@ -272,7 +271,7 @@ class ActionQualityMonitor(BaseCallback):
     """
 
     def __init__(self, log_dir, verbose=0):
-        super(ActionQualityMonitor, self).__init__(verbose)
+        super().__init__(verbose)
         self.log_dir = log_dir
         os.makedirs(f"{log_dir}/plots", exist_ok=True)
         os.makedirs(f"{log_dir}/csv", exist_ok=True)
@@ -290,9 +289,6 @@ class ActionQualityMonitor(BaseCallback):
         self.log_frequency = 1000  # Log every 1000 steps
 
     def _on_step(self) -> bool:
-        # Get the environment
-        env = self.training_env.envs[0].unwrapped if hasattr(self.training_env, "envs") else self.training_env.unwrapped
-
         # Check the reward value to determine if the move was valid
         # In our chess environment, invalid moves get -0.5 reward
         reward = (
