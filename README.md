@@ -6,6 +6,8 @@ A deep reinforcement learning project that teaches an AI agent to play chess thr
 
 ## Overview
 
+> **Status (Nov 2026):** being revived and redesigned. The original 2025 DQN agent is preserved as baseline [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0); it scores 49% against a random-move player. Why it couldn't learn: [`docs/postmortem-v0.md`](docs/postmortem-v0.md). Roadmap: [milestones](https://github.com/omrode1/Chess-Engine-RL/milestones).
+
 This project implements a reinforcement learning environment for training chess-playing AI agents using the Deep Q-Network (DQN) algorithm from Stable Baselines3. The agent learns chess strategy through play experience and a carefully designed reward function that encodes chess principles, supplemented by opening book knowledge.
 
 ## Features
