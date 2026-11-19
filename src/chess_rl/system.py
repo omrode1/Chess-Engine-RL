@@ -79,7 +79,10 @@ def versions() -> dict[str, Any]:
 
 
 def git_info(repo: Path = REPO_ROOT) -> dict[str, Any]:
-    """Commit SHA and whether the working tree had uncommitted changes."""
+    """Commit SHA and whether tracked code had uncommitted changes.
+
+    results/ is excluded: run records and Elo tables are written there by the runs themselves.
+    """
 
     def run(*args: str) -> str | None:
         try:
@@ -89,5 +92,5 @@ def git_info(repo: Path = REPO_ROOT) -> dict[str, Any]:
         return out.stdout.strip() if out.returncode == 0 else None
 
     sha = run("rev-parse", "HEAD")
-    status = run("status", "--porcelain", "--untracked-files=no")
+    status = run("status", "--porcelain", "--untracked-files=no", "--", ".", ":(exclude)results")
     return {"sha": sha, "dirty": bool(status) if status is not None else None}
