@@ -60,6 +60,16 @@ Reference ladder (100 games each; Elo of the first player relative to the second
 
 The bar for M4: the new network, with no search, scores ≥50% against Stockfish @ 1320.
 
+## Play it in a chess GUI (UCI)
+
+Any player can run as a UCI engine:
+
+```bash
+uv run chess-rl uci --player greedy
+```
+
+To add it to Cute Chess, Arena, or En Croissant, use **command** `<repo>/.venv/bin/chess-rl` with **arguments** `uci --player greedy`. Strength can be changed from the GUI with the `Player` option (any player spec, e.g. `stockfish:elo=1500,movetime=0.2`). Our own engines become available as specs from M4.
+
 ## Layout
 
 ```

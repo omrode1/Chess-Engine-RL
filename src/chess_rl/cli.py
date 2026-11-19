@@ -143,6 +143,13 @@ def _cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_uci(args: argparse.Namespace) -> int:
+    from chess_rl.play.uci import serve
+
+    serve(args.player, seed=args.seed)
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -174,6 +181,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-record", action="store_true", help="do not append to results/elo.csv")
     p.add_argument("--stall-timeout", type=float, default=300.0, help="abort if no game finishes for this long (s)")
     p.set_defaults(func=_cmd_match)
+
+    p = sub.add_parser("uci", help="run a player as a UCI engine (for chess GUIs and lichess-bot)")
+    p.add_argument("--player", default="greedy", help="player spec served over UCI (changeable via setoption)")
+    p.add_argument("--seed", type=int, default=None)
+    p.set_defaults(func=_cmd_uci)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)
