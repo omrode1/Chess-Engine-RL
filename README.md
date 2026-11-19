@@ -72,10 +72,7 @@ Chess-Engine-RL/
 ├── test_agent.py               # Script to test the trained agent
 ├── models_with_opening_book/   # Saved model checkpoints
 ├── logs_with_opening_book/     # Training logs
-├── pgn_games/                  # Saved chess games in PGN format
-└── legacy/                     # Archived files from previous versions
-    ├── models/
-    └── logs/
+└── pgn_games/                  # Saved chess games in PGN format
 ```
 
 ## How It Works

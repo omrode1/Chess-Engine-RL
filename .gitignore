@@ -1,19 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+.env.*
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Training outputs (model weights go to GitHub Release assets)
 models/
-
+models_with_opening_book/
+logs_with_opening_book/
+tactical_models/
+tactical_logs/
+tactical_pgn_games/
+runs/
+checkpoints/
 *.zip
+*.pt
+*.pth
+*.onnx
 
+# Logs, metrics, games
+*.log
 *.csv
-*.jpg
 *.png
+*.jpg
+pgn_games/
+*.pgn
 
-/logs_with_opening_book/
-
-/src/pycache/
-
-/pycache/
-
-/pgn_games/
-
-/legacy/logs
-
-
+# Datasets (never committed)
+data/
