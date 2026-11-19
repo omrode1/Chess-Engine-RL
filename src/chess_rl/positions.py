@@ -4,9 +4,12 @@ Levels: 0 = standard start (full game), 1 = middlegames, 2 = endgames, 3 = "tact
 They are used as self-play starting positions (M7) and in the tactics suite (M3). The order within
 each level is kept from v0, so seeded random choices pick the same positions as before.
 
-The 2025 labels are kept as descriptions of intent. Only the "Mate in 1" label was demonstrably wrong:
-in that position Qxf7 is blocked by the knight on f6, and White has no mate in one. The other
-tactical labels (fork, pin, discovered attack) have not been verified as forced tactics.
+The 2025 labels are kept as descriptions of intent, but the level-3 "tactical" positions contain no
+tactics. Stockfish 19 at depth 24 (multipv 5) rates them as ordinary openings: "Fork opportunity"
+-110 cp for White with 5 moves within 30 cp of best, "Pin opportunity" -61 cp (3 such moves),
+"Discovered attack" +19 cp (5), and the former "Mate in 1" 0 cp (only Ne2). The "Mate in 1" label was
+corrected, because Qxf7 is blocked by the knight on f6. For tactics measurement use the WAC suite
+(chess_rl.eval.tactics).
 """
 
 from __future__ import annotations

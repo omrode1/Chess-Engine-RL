@@ -150,6 +150,31 @@ def _cmd_uci(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_tactics(args: argparse.Namespace) -> int:
+    from chess_rl.eval import tactics
+    from chess_rl.eval.registry import display_name, make_player
+
+    suites = list(tactics.SUITES) if args.suite == "all" else [args.suite]
+    player = make_player(args.player, seed=args.seed, name=display_name(args.player))
+    try:
+        for suite in suites:
+
+            def progress(done: int, total: int, solved: int) -> None:
+                if done % 25 == 0 or done == total:
+                    print(f"[{done}/{total}] solved {solved}", file=sys.stderr, flush=True)
+
+            conf = {"player": args.player, "suite": suite, "seed": args.seed}
+            with track_run("tactics", conf, seed=args.seed, device="cpu") as run:
+                result = tactics.run_suite(player, suite, progress=progress)
+                run.outputs.update(solved=len(result.solved), total=result.total, failed=result.failed)
+            print(result)
+            if not args.no_record:
+                tactics.append_tactics_row(result)
+    finally:
+        player.close()
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -186,6 +211,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--player", default="greedy", help="player spec served over UCI (changeable via setoption)")
     p.add_argument("--seed", type=int, default=None)
     p.set_defaults(func=_cmd_uci)
+
+    p = sub.add_parser("tactics", help="tactics test suites (Win At Chess)")
+    tsub = p.add_subparsers(dest="tactics_command", required=True)
+    run = tsub.add_parser("run", help="score a player on a suite")
+    run.add_argument("--player", required=True, help="player spec")
+    run.add_argument("--suite", default="all", choices=["wac", "all"])
+    run.add_argument("--seed", type=int, default=0)
+    run.add_argument("--no-record", action="store_true", help="do not append to results/tactics.csv")
+    p.set_defaults(func=_cmd_tactics)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)
