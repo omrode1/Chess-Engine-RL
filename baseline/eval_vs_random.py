@@ -3,9 +3,9 @@
 Colours alternate each game. Games that reach --max-plies are adjudicated as draws.
 A random-vs-random reference run is included so the agent's score has context.
 
-    uv run python -m scripts.eval_vs_random --model tactical_models/chess_tactical_final --games 100
+    uv run chess-rl baseline eval-random --model runs/v0.1.0/models/chess_tactical_final --games 100
 
-Run it as a module from the repo root so that `src` is importable.
+Equivalent: `uv run python -m baseline.eval_vs_random ...` from the repo root.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import chess
 import chess.pgn
 import numpy as np
 
-from src.chess_environment import ChessEnvWithOpeningBook
+from baseline.chess_environment import ChessEnvWithOpeningBook
 
 
 @dataclass
