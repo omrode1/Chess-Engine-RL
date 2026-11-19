@@ -76,25 +76,45 @@ def test_callbacks_do_not_open_files_until_training_starts(tmp_path):
     assert not list((tmp_path / "csv").iterdir())
 
 
-@pytest.mark.xfail(
-    strict=True, raises=TypeError, reason="#8: MaskedDQNPolicy.train shadows nn.Module.train, breaking eval()"
-)
 def test_policy_eval_mode_works():
-    _model().policy.eval()
+    policy = _model().policy
+    policy.eval()
+    assert not policy.training
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="#7/#8: curriculum stops after stage 1; stage 2 would crash on replay_buffer=None",
-)
 def test_curriculum_runs_all_stages(tmp_path):
+    # Opening book on: the final full-game stage (level 0) is the only one that uses it.
     tactical.train_model(
-        total_timesteps=4_000,
+        total_timesteps=2_000,  # every stage stays below learning_starts: tests stage plumbing, not learning
         model_dir=str(tmp_path / "m"),
         log_dir=str(tmp_path / "l"),
-        use_opening_book=False,
+        use_opening_book=True,
         num_envs=1,
     )
     saved = sorted(p.name for p in (tmp_path / "m").glob("*_complete.zip"))
     assert len(saved) == 4, saved
+    assert (tmp_path / "m" / "chess_tactical_final.zip").exists()
+
+
+def test_training_errors_propagate_and_skip_final_save(tmp_path, monkeypatch):
+    import train_agent
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(DQN, "learn", boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        train_agent.train_model(total_timesteps=100, model_dir=str(tmp_path / "m"), log_dir=str(tmp_path / "l"))
+    assert not list((tmp_path / "m").glob("*final*"))
+
+
+def test_keyboard_interrupt_saves_interrupted_model(tmp_path, monkeypatch):
+    import train_agent
+
+    def interrupt(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(DQN, "learn", interrupt)
+    train_agent.train_model(total_timesteps=100, model_dir=str(tmp_path / "m"), log_dir=str(tmp_path / "l"))
+    assert (tmp_path / "m" / "chess_with_opening_book_interrupted.zip").exists()
+    assert not list((tmp_path / "m").glob("*final*"))

@@ -2,7 +2,6 @@ import os
 
 import gym
 import torch
-import torch.nn.functional as F
 from gym import spaces
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
@@ -48,7 +47,9 @@ class ChessFeatureExtractor(BaseFeaturesExtractor):
             nn.ReLU(),
         )
 
-        # Value head for predicting game outcome (win/loss probability)
+        # Value head for predicting game outcome. NOTE: never trained. The auxiliary loss that was meant to
+        # train it (a MaskedDQNPolicy.train override) was never called by SB3 and was removed in #8.
+        # The redesigned engine (M4) has a real policy/value network.
         self.value_head = nn.Sequential(
             nn.Linear(features_dim, 128),
             nn.ReLU(),
@@ -60,8 +61,7 @@ class ChessFeatureExtractor(BaseFeaturesExtractor):
         # Observations shape: (batch_size, 12, 8, 8)
         features = self.cnn(observations)
         features = self.fc(features)
-        # We don't use the value head in the forward pass for DQN
-        # It's used in the custom loss function
+        # The value head is not used by DQN
         return features
 
     def predict_value(self, observations: torch.Tensor) -> torch.Tensor:
@@ -91,13 +91,6 @@ class MaskedDQNPolicy(DQNPolicy):
         kwargs["features_extractor_class"] = ChessFeatureExtractor
         super().__init__(observation_space, action_space, lr_schedule, *args, **kwargs)
 
-        # Value loss weight for the auxiliary task
-        self.value_loss_weight = 0.5
-        # Create value optimizer
-        self.value_optimizer = torch.optim.Adam(
-            self.q_net.features_extractor.value_head.parameters(), lr=lr_schedule(1)
-        )
-
     def _predict(self, observation: torch.Tensor, deterministic: bool = False) -> torch.Tensor:
         """
         Get the action according to the policy for a given observation.
@@ -113,39 +106,6 @@ class MaskedDQNPolicy(DQNPolicy):
         # Instead, we'll always return the argmax of Q-values
         # The LegalMovesWrapper will ensure the actions are legal
         return torch.argmax(q_values, dim=1)
-
-    def train(self, gradient_steps: int, batch_size: int) -> None:
-        """
-        Override the train method to include value prediction training
-        """
-        # Get original training losses
-        losses = super().train(gradient_steps, batch_size)
-
-        # Sample from replay buffer for value prediction training
-        if self.replay_buffer is not None and self.replay_buffer.size() > 0:
-            # Sample from the replay buffer
-            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
-
-            # Extract observations and rewards
-            observations = replay_data.observations
-            rewards = replay_data.rewards
-
-            # Predict values
-            values = self.q_net.features_extractor.predict_value(observations).squeeze()
-
-            # Calculate value loss - try to predict cumulative reward
-            value_loss = F.mse_loss(values, rewards)
-
-            # Backpropagate
-            self.value_optimizer.zero_grad()
-            value_loss.backward()
-            self.value_optimizer.step()
-
-            # Add value loss to returned losses
-            if isinstance(losses, dict):
-                losses["value_loss"] = value_loss.item()
-
-        return losses
 
 
 # Environment wrapper that maps actions to legal moves
@@ -311,38 +271,35 @@ def train_model(
                 exploration_final_eps=max(0.05, 0.1 - i * 0.02),  # Decrease exploration gradually
                 learning_rate=0.0005 * (0.7**i),  # Decrease learning rate gradually
                 tensorboard_log=os.path.join(log_dir, f"stage_{i + 1}_{stage['name']}"),
-            )
-            # This prevents buffer artifacts from previous stages
-            model.replay_buffer = None
+            )  # DQN.load builds a fresh, empty replay buffer for the new stage
 
         print(f"Starting training on {stage['name']} with {stage['timesteps']} timesteps...")
 
-        # Train the model
+        # Train the model. Real errors propagate; only Ctrl-C is handled, with a clearly named save.
         try:
             model.learn(
                 total_timesteps=stage["timesteps"],
                 callback=callbacks,
                 log_interval=100,  # Print stats every 100 updates
             )
-            print(f"Stage {i + 1} completed successfully!")
+        except KeyboardInterrupt:
+            interrupted_path = f"{model_dir}/chess_tactical_stage_{i + 1}_{stage['name']}_interrupted"
+            model.save(interrupted_path)
+            print(f"Training interrupted by user; model saved to {interrupted_path}")
+            return model
+        finally:
+            env.close()  # stop this stage's worker processes
 
-            # Save stage model
-            stage_model_path = f"{model_dir}/chess_tactical_stage_{i + 1}_{stage['name']}_complete"
-            model.save(stage_model_path)
-            print(f"Stage model saved to {stage_model_path}")
-
-            # Update current model for next stage
-            current_model = stage_model_path
-
-        except Exception as e:
-            print(f"Training was interrupted: {e}")
-            break
+        print(f"Stage {i + 1} completed successfully!")
+        stage_model_path = f"{model_dir}/chess_tactical_stage_{i + 1}_{stage['name']}_complete"
+        model.save(stage_model_path)
+        print(f"Stage model saved to {stage_model_path}")
+        current_model = stage_model_path
 
     # Save the final model
     final_model_path = f"{model_dir}/chess_tactical_final"
-    if model is not None:
-        model.save(final_model_path)
-        print(f"Final model saved to {final_model_path}")
+    model.save(final_model_path)
+    print(f"Final model saved to {final_model_path}")
 
     # Print location of training metrics
     print(f"Training metrics saved to {log_dir}")
