@@ -55,11 +55,19 @@ def test_custom_start_position():
     assert e.board.fen() == fen
 
 
-@pytest.mark.xfail(strict=True, raises=ModuleNotFoundError, reason="#6: imports nonexistent src.chess_opening_book")
 def test_env_with_opening_book_constructs():
     e = ChessEnvWithOpeningBook(use_opening_book=True)
     e.reset()
     assert e.get_hint_from_opening_book() in e.board.legal_moves
+
+
+def test_playing_the_book_move_is_flagged(monkeypatch):
+    e = ChessEnvWithOpeningBook(use_opening_book=True)
+    e.reset()
+    e2e4 = chess.Move.from_uci("e2e4")
+    monkeypatch.setattr(e.opening_book, "get_move", lambda board: e2e4)
+    _, _, _, info = e.step(e.legal_moves_list.index(e2e4))
+    assert info["followed_opening_book"]
 
 
 # --- Known reward bugs in the v0 DQN design (documented in #33). The redesign
