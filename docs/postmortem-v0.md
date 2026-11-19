@@ -109,7 +109,7 @@ With all the crash bugs fixed, the canonical pipeline was trained for 300k steps
 
 That is about **−7 ± 24 Elo against random**: no measurable chess skill. During training, mean episode reward was still +193 with games of ~382 plies, the reward-farming signature described above. Weights, games, and logs: [release v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0).
 
-Reproduce: `uv run python -m scripts.eval_vs_random --model <v0.1.0 zip> --games 100 --seed 0`.
+Reproduce: `uv run python -m baseline.eval_vs_random --model <v0.1.0 zip> --games 100 --seed 0`.
 
 [env41]: https://github.com/omrode1/Chess-Engine-RL/blob/deb8250/src/chess_environment.py#L41
 [env59]: https://github.com/omrode1/Chess-Engine-RL/blob/deb8250/src/chess_environment.py#L59

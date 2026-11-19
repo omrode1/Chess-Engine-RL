@@ -1,6 +1,6 @@
 import random
 
-from scripts.eval_vs_random import play_game, run
+from baseline.eval_vs_random import play_game, run
 
 
 def test_random_vs_random_games_finish_and_are_scored():

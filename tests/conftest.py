@@ -10,6 +10,14 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")  # keep tests on CPU and deter
 
 
 @pytest.fixture(autouse=True)
+def _runs_file(tmp_path, monkeypatch):
+    """Never append test runs to the tracked results/runs.jsonl."""
+    path = tmp_path / "runs.jsonl"
+    monkeypatch.setenv("CHESS_RL_RUNS_FILE", str(path))
+    return path
+
+
+@pytest.fixture(autouse=True)
 def _seed():
     random.seed(0)
     np.random.seed(0)
@@ -17,7 +25,7 @@ def _seed():
 
 @pytest.fixture
 def env():
-    from src.chess_environment import ChessEnvWithOpeningBook
+    from baseline.chess_environment import ChessEnvWithOpeningBook
 
     e = ChessEnvWithOpeningBook(use_opening_book=False)
     e.reset()

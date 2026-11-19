@@ -1,217 +1,70 @@
-# Chess Engine Reinforcement Learning
+# Chess-Engine-RL
 
-A deep reinforcement learning project that teaches an AI agent to play chess through self-play and reward optimization, enhanced with opening book knowledge.
+**A chess engine trained on a laptop GPU, built to beat one specific person: me.**
 
-![Chess Board](https://github.com/favicon.ico) <!-- Replace with an actual chess image if you have one -->
+> **Status (Nov 2026): being revived and redesigned.** The original 2025 DQN agent is preserved as baseline [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0). It scores **49% against a random-move player**, so it has no measurable chess skill. Why it couldn't learn: [`docs/postmortem-v0.md`](docs/postmortem-v0.md).
 
-## Overview
+## The idea
 
-> **Status (Nov 2026):** being revived and redesigned. The original 2025 DQN agent is preserved as baseline [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0); it scores 49% against a random-move player. Why it couldn't learn: [`docs/postmortem-v0.md`](docs/postmortem-v0.md). Roadmap: [milestones](https://github.com/omrode1/Chess-Engine-RL/milestones).
+Most engines play the objectively best move and assume a perfect opponent. This project builds an engine that wins against **one particular human** by modelling them:
 
-This project implements a reinforcement learning environment for training chess-playing AI agents using the Deep Q-Network (DQN) algorithm from Stable Baselines3. The agent learns chess strategy through play experience and a carefully designed reward function that encodes chess principles, supplemented by opening book knowledge.
+1. **Learn chess from human games**: a policy/value network pretrained on Lichess games, sized for an RTX 3050 (6 GB).
+2. **Search**: MCTS on top of the network, so it stops hanging pieces.
+3. **Model the opponent ("Om-sim")**: a few-shot model of my own moves and mistakes, built from my games.
+4. **Exploit the model**: opponent-aware search and RL against the simulated opponent.
 
-## Features
+Headline question: **how much less compute does an engine need to beat a specific human when it models that human?** Every run's compute is logged so the answer can be measured.
 
-- Custom OpenAI Gym environment for chess
-- Deep Q-Learning implementation with PyTorch backend
-- Opening book knowledge to guide early game play
-- Convolutional Neural Network specifically designed for chess
-- Action masking to ensure legal moves
-- Reward system modeling good chess principles:
-  - Material advantage
-  - Center control
-  - Piece development
-  - King safety (castling)
-  - Opening theory adherence
-  - Check/checkmate rewards
-- Penalties for suboptimal play:
-  - Position repetition penalties
-  - Move oscillation detection
-  - Early game mistakes
-- Automatic PGN generation for game analysis
-- Visualization of the agent's progress
-- Detailed metrics tracking for performance analysis
+Roadmap and progress: [milestones](https://github.com/omrode1/Chess-Engine-RL/milestones).
 
-## Installation
+## Install
 
-### Prerequisites
-
-- Python 3.12
-- [uv](https://docs.astral.sh/uv/)
-- For GPU training: an NVIDIA driver supporting CUDA 13.0+
-
-### Setup
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). GPU training needs an NVIDIA driver supporting CUDA 13.0+.
 
 ```bash
 git clone https://github.com/omrode1/Chess-Engine-RL.git
 cd Chess-Engine-RL
+uv sync --extra cu130   # NVIDIA GPU
+uv sync --extra cpu     # or CPU only
 
-# Pick one torch build:
-uv sync --extra cu130   # NVIDIA GPU (CUDA 13.0)
-uv sync --extra cpu     # CPU only
-
-uv run python main.py --help
+uv run chess-rl info    # versions, hardware, device
 ```
-
-Dependencies are pinned in `uv.lock`. Use `uv sync --locked` to get the exact versions.
-
-## Project Structure
-
-```
-Chess-Engine-RL/
-├── src/                        # Source code
-│   ├── __init__.py
-│   └── chess_environment.py    # Custom chess environment with opening book
-├── utils/                      # Utilities
-│   ├── __init__.py
-│   ├── opening_book.py         # Chess opening book knowledge
-│   └── custom_callbacks.py     # Custom callbacks for metrics and logging
-├── main.py                     # Main entry point for the project
-├── train_agent.py              # Script to train the RL agent
-├── eval_agent.py               # Script to evaluate a trained agent
-├── models_with_opening_book/   # Saved model checkpoints
-├── logs_with_opening_book/     # Training logs
-└── pgn_games/                  # Saved chess games in PGN format
-```
-
-## How It Works
-
-### The Chess Environment
-
-The project uses a custom Gym environment (`src/chess_environment.py`) that:
-
-1. Represents the chess board as a 12×8×8 tensor (6 piece types × 2 colors × 8×8 board)
-2. Handles the action space as indices into the list of legal moves
-3. Integrates opening book knowledge for the first 10 moves
-4. Manages game state, legal moves, and rewards
-
-### Opening Book Knowledge
-
-The agent can leverage established chess opening theory:
-
-- Popular openings like Ruy Lopez, Sicilian Defense, Queen's Gambit, etc.
-- Bonus rewards for following established opening lines
-- Weighted selection of opening moves based on popularity
-- Configurable depth for opening book guidance
-
-### The Reward System
-
-The agent learns through a sophisticated reward system that encourages good chess principles:
-
-- **Opening Book Adherence**: Bonus reward for following opening theory
-- **Material Balance**: Capturing opponent pieces (+) and avoiding captures (-)
-- **Position Quality**:
-  - Center control: Reward for controlling center squares
-  - Castling: Significant bonus for completing castling
-  - Check: Reward for putting the opponent in check
-- **Development**:
-  - Rewards for developing knights and bishops in the opening
-  - Rewards for piece mobility and activity
-- **Pawn Structure**: Rewards for protected pawns and good pawn structure
-- **Penalties**:
-  - Penalties for position repetition
-  - Penalties for stalemate
-- **Winning/Losing**:
-  - +5.0 for checkmate (win)
-  - -5.0 for being checkmated (loss)
-
-### Neural Network Architecture
-
-A custom Convolutional Neural Network is used to process the chess board:
-
-- Convolutional layers to capture spatial patterns on the board
-- Fully connected layers for strategic decision making
-- Custom feature extractor designed specifically for chess positions
-
-### Training Process
-
-The agent is trained using the DQN algorithm with the following parameters:
-
-- Learning rate: 0.0005
-- Batch size: 128
-- Replay buffer size: 100,000
-- Exploration strategy: ε-greedy with decay (final epsilon: 0.05)
-- Total training steps: 1,000,000
 
 ## Usage
 
-### Command-Line Interface
-
-The project provides a convenient command-line interface:
-
 ```bash
-# Train an agent
-python main.py train [--timesteps TIMESTEPS] [--model-dir MODEL_DIR] [--log-dir LOG_DIR] [--no-opening-book]
-
-# Test an agent
-python main.py test [--model MODEL] [--games GAMES] [--max-moves MAX_MOVES] [--save-pgn] [--pgn-dir PGN_DIR] [--visualize] [--delay DELAY] [--no-opening-book]
+# v0 DQN baseline (frozen for comparison)
+uv run chess-rl baseline train --config configs/baseline.yaml [--set timesteps=50000]
+uv run chess-rl baseline eval-random --model runs/baseline/models/chess_tactical_final --games 100
 ```
 
-### Training a Chess Agent
+Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours. New subcommands arrive with each milestone: data, train, match, uci, play.
 
-```bash
-python main.py train
+## Layout
+
 ```
-
-This will start the training process, periodically saving checkpoints and logs.
-
-### Testing a Trained Agent
-
-```bash
-python main.py test --visualize
+src/chess_rl/      the engine package: config, run logging, CLI (encoding, model, search, ... to come)
+baseline/          frozen v0 DQN pipeline (removed in M5)
+utils/             opening book (moving into chess_rl in M2)
+configs/           YAML run configs
+results/           tracked run records and evaluation results
+docs/              post-mortem, reports
+tests/             pytest suite (CI on every PR)
 ```
-
-This will load the trained model and have it play a game, visualizing the board after each move.
-
-### Analyzing Games
-
-The saved PGN files can be analyzed with any chess analysis software or website, such as:
-- [Lichess](https://lichess.org/analysis)
-- [Chess.com](https://www.chess.com/analysis)
-- [SCID](http://scid.sourceforge.net/)
-
-## Results
-
-The trained agent demonstrates:
-1. Understanding of established opening theory
-2. Sound material value assessment
-3. Tactical awareness (capturing pieces, avoiding captures)
-4. Strategic understanding of piece development and center control
-5. Improved play over time as shown by metrics
-
-## Future Improvements
-
-- Implement a self-play training loop to enhance learning
-- Add Monte Carlo Tree Search for more sophisticated play
-- Implement Proximal Policy Optimization (PPO) for better sample efficiency
-- Enhance the neural network architecture for better spatial understanding
-- Create a chess engine interface for playing against humans
 
 ## Development
 
 ```bash
-uv sync --extra cpu            # or --extra cu130
-uvx pre-commit install         # ruff lint + format on every commit
-uv run pytest                  # tests (CPU, ~40 s)
-uv run ruff check . && uv run ruff format --check .
+uvx pre-commit install   # ruff lint + format on every commit
+uv run pytest            # tests (CPU, ~1 min)
 ```
 
-CI runs lint and tests on every pull request.
+All work goes through issue → branch → PR → CI. `main` is protected.
 
 ## License
 
-[MIT License](LICENSE)
+[MIT](LICENSE)
 
 ## Acknowledgments
 
-- [python-chess](https://python-chess.readthedocs.io/) for the chess logic
-- [Stable Baselines3](https://stable-baselines3.readthedocs.io/) for the reinforcement learning algorithms
-- [OpenAI Gym](https://www.gymlibrary.dev/) for the environment interface
-
-## Contact
-
-For questions or feedback, please open an issue or contact [your-email@example.com].
-
----
-
-Happy training!
+[python-chess](https://python-chess.readthedocs.io/), [PyTorch](https://pytorch.org/), [Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (v0 baseline), and the [Lichess open database](https://database.lichess.org/).

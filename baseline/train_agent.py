@@ -9,8 +9,8 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.dqn.policies import DQNPolicy
 from torch import nn
 
-from src.chess_environment import ChessEnvWithOpeningBook
-from utils.custom_callbacks import ActionQualityMonitor, MetricsLogger
+from baseline.chess_environment import ChessEnvWithOpeningBook
+from baseline.custom_callbacks import ActionQualityMonitor, MetricsLogger
 
 
 # Custom neural network that will be used as policy

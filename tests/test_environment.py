@@ -2,7 +2,7 @@ import chess
 import numpy as np
 import pytest
 
-from src.chess_environment import ChessEnvWithOpeningBook
+from baseline.chess_environment import ChessEnvWithOpeningBook
 from tests.conftest import play_uci
 
 FOOLS_MATE = ["f2f3", "e7e5", "g2g4", "d8h4"]  # Black mates

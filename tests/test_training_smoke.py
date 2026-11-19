@@ -6,8 +6,8 @@ from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-import train_tactical_agent as tactical
-from utils.custom_callbacks import ActionQualityMonitor, MetricsLogger
+from baseline import train_tactical_agent as tactical
+from baseline.custom_callbacks import ActionQualityMonitor, MetricsLogger
 
 pytestmark = pytest.mark.slow
 
@@ -97,7 +97,7 @@ def test_curriculum_runs_all_stages(tmp_path):
 
 
 def test_training_errors_propagate_and_skip_final_save(tmp_path, monkeypatch):
-    import train_agent
+    from baseline import train_agent
 
     def boom(*args, **kwargs):
         raise RuntimeError("boom")
@@ -109,7 +109,7 @@ def test_training_errors_propagate_and_skip_final_save(tmp_path, monkeypatch):
 
 
 def test_keyboard_interrupt_saves_interrupted_model(tmp_path, monkeypatch):
-    import train_agent
+    from baseline import train_agent
 
     def interrupt(*args, **kwargs):
         raise KeyboardInterrupt

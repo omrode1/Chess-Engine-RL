@@ -7,7 +7,7 @@ import chess
 import chess.pgn
 from stable_baselines3 import DQN
 
-from src.chess_environment import ChessEnvWithOpeningBook
+from baseline.chess_environment import ChessEnvWithOpeningBook
 
 
 def parse_args():

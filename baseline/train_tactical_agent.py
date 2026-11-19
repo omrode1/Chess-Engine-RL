@@ -10,8 +10,8 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.dqn.policies import DQNPolicy
 from torch import nn
 
-from src.chess_environment import ChessEnvWithOpeningBook
-from utils.custom_callbacks import ActionQualityMonitor, MetricsLogger
+from baseline.chess_environment import ChessEnvWithOpeningBook
+from baseline.custom_callbacks import ActionQualityMonitor, MetricsLogger
 
 
 # Custom neural network that will be used as policy
@@ -163,7 +163,8 @@ def train_model(
     use_opening_book=True,
     num_envs=4,
     use_curriculum=True,
-):  # Added curriculum learning option
+    seed=None,
+):
     """
     Train a chess RL agent with the given parameters.
 
@@ -248,6 +249,7 @@ def train_model(
             model = DQN(
                 policy=MaskedDQNPolicy,
                 env=env,
+                seed=seed,
                 verbose=1,
                 learning_rate=0.0005,  # Higher learning rate for faster adaptation
                 batch_size=256,  # Even larger batch size for more stable learning with parallel envs
