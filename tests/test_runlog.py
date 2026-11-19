@@ -42,3 +42,23 @@ def test_record_has_no_hostname(_runs_file):
         pass
     assert socket.gethostname() not in _runs_file.read_text()
     json.loads(_runs_file.read_text().splitlines()[-1])  # one valid JSON object per line
+
+
+def test_results_dir_does_not_make_tree_dirty(tmp_path):
+    import subprocess
+
+    from chess_rl.system import git_info
+
+    repo = tmp_path / "repo"
+    (repo / "results").mkdir(parents=True)
+    (repo / "code.py").write_text("x = 1\n")
+    (repo / "results" / "runs.jsonl").write_text("{}\n")
+    env = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", *env, "-C", str(repo), "add", "."], check=True)
+    subprocess.run(["git", *env, "-C", str(repo), "commit", "-qm", "init"], check=True)
+    assert git_info(repo)["dirty"] is False
+    (repo / "results" / "runs.jsonl").write_text("{}\n{}\n")  # a run appended a record
+    assert git_info(repo)["dirty"] is False
+    (repo / "code.py").write_text("x = 2\n")  # code changed
+    assert git_info(repo)["dirty"] is True

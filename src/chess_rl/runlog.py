@@ -59,6 +59,7 @@ def track_run(
     cfg = dataclasses.asdict(config) if dataclasses.is_dataclass(config) else dict(config)
     run = Run(kind=kind, config=cfg, seed=seed, device=device)
     started_at, t0 = _now(), time.perf_counter()
+    git = git_info()  # the code that runs, captured before the run writes anything
     status = "ok"
     try:
         yield run
@@ -80,7 +81,7 @@ def track_run(
             "gpu_hours": round(wall / 3600, 4) if device.startswith("cuda") else 0.0,
             "device": device,
             "seed": seed,
-            "git": git_info(),
+            "git": git,
             "hardware": hardware_info(),
             "versions": versions(),
             "config": cfg,

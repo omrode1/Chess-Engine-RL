@@ -38,6 +38,7 @@ cu130 = ["torch==2.14.1"]
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-timeout>=2.3",
     "ruff>=0.8",
 ]
 
@@ -60,6 +61,7 @@ known-first-party = ["chess_rl", "baseline", "tests"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
+timeout = 300  # no test may hang CI; a stuck test fails with a traceback
 markers = ["slow: multi-second training runs"]
 filterwarnings = [
     "ignore::DeprecationWarning",

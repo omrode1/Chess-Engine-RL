@@ -41,6 +41,25 @@ uv run chess-rl baseline eval-random --model runs/baseline/models/chess_tactical
 
 Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours. New subcommands arrive with each milestone: data, train, match, uci, play.
 
+## Evaluation
+
+```bash
+uv run chess-rl match greedy "stockfish:elo=1500,movetime=0.1" --games 100 --workers 8
+```
+
+Games come in colour-swapped pairs from opening-book starts and run in parallel. Each match prints one line per game, records Elo with a 95% confidence interval in [`results/elo.csv`](results/elo.csv), and saves every game as PGN. Player specs: `random`, `greedy`, `stockfish:elo=…,movetime=…`, `v0:path=…`.
+
+Reference ladder (100 games each; Elo of the first player relative to the second):
+
+| Match | W / D / L | Elo [95% CI] |
+|---|---|---|
+| greedy vs random | 89 / 11 / 0 | +494 [+411, +641] |
+| v0 baseline vs random | 6 / 86 / 8 | −7 [−32, +19] |
+| random vs Stockfish 19 @ UCI_Elo 1320 | 0 / 1 / 99 | −920 [−∞, −730] |
+| greedy vs Stockfish 19 @ UCI_Elo 1320 | 0 / 2 / 98 | −798 [−∞, −646] |
+
+The bar for M4: the new network, with no search, scores ≥50% against Stockfish @ 1320.
+
 ## Layout
 
 ```
