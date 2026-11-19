@@ -1,0 +1,50 @@
+[project]
+name = "chess-rl"
+version = "0.1.0.dev0"
+description = "A laptop-trained chess engine built to beat one specific human by modelling them."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Om Rode" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "chess>=1.11,<2",
+    "numpy>=1.26,<2",            # gym 0.23 does not support NumPy 2; lifted after the gymnasium migration
+    "gym==0.23.1",               # legacy v0 pipeline only; replaced by gymnasium
+    "shimmy>=2.0,<3",            # lets SB3 2.x wrap old-gym environments
+    "stable-baselines3>=2.5,<3",
+    "torch==2.14.1",
+    "matplotlib>=3.8",
+    "pandas>=2.2",
+    "tensorboard>=2.17",
+]
+
+[project.optional-dependencies]
+# Pick exactly one: `uv sync --extra cu130` (RTX 3050 laptop) or `uv sync --extra cpu` (CI, no GPU).
+cpu = ["torch==2.14.1"]
+cu130 = ["torch==2.14.1"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false  # scripts for now; becomes an installable package in M2 (#12)
+conflicts = [[{ extra = "cpu" }, { extra = "cu130" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true

@@ -34,27 +34,24 @@ This project implements a reinforcement learning environment for training chess-
 
 ### Prerequisites
 
-- Python 3.8+
-- pip
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/)
+- For GPU training: an NVIDIA driver supporting CUDA 13.0+
 
 ### Setup
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/Chess-Engine-RL.git
+git clone https://github.com/omrode1/Chess-Engine-RL.git
 cd Chess-Engine-RL
+
+# Pick one torch build:
+uv sync --extra cu130   # NVIDIA GPU (CUDA 13.0)
+uv sync --extra cpu     # CPU only
+
+uv run python main.py --help
 ```
 
-2. Create and activate a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
-```
-
-3. Install the required packages:
-```bash
-pip install -r requirements.txt
-```
+Dependencies are pinned in `uv.lock`. Use `uv sync --locked` to get the exact versions.
 
 ## Project Structure
 
