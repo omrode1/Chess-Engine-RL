@@ -80,7 +80,7 @@ Each bug is reproduced by a test. Tests marked `xfail` document v0 behaviour tha
 | Attack maps computed before the move, used after it | [L155-161, 313-375][env155] | Pawn-structure, defence and hanging rewards scored the wrong position | Removed with the redesign |
 | Hanging-piece penalty scored the opponent's defended pieces | [L368][env368] | Together with the stale attack maps, quiet opening moves scored about −2 in total | Removed with the redesign |
 | `elif is_repetition(3)` could never run | [L301][env301] | Threefold repetition was penalised the same as twofold | Removed with the redesign |
-| "Mate in 1" curriculum position has no mate | [L108][env108] | Mislabelled puzzle (the f6 knight blocks the queen) | Label to be fixed (#15) |
+| "Tactical puzzles" contain no tactics | [L100-110][env108] | "Mate in 1" has no mate (the f6 knight blocks the queen). Stockfish 19 at depth 24 rates all four as ordinary openings with 3–5 equally good moves, and White is −1.1 pawns in the "fork" position. Stage 1 of the curriculum taught nothing tactical. | Label fixed (#57); excluded from the tactics suite (#19) |
 | Opening book imported from a nonexistent module | [L41][env41] | `main.py train` and `main.py test` crashed with the default settings | Fixed in #49 |
 | `MetricsLogger` built a DataFrame from a list that was never filled | [custom_callbacks.py L241][cb241] | Every run ended with `All arrays must be of the same length`. In the curriculum, `except Exception: break` ([L332-334][tt332]) turned this into "stages 2–4 never run". | Fixed in #50 |
 | `model.replay_buffer = None` after loading the stage model | [L311][tt311] | Stage 2 would have crashed (it was never reached) | Fixed in #51 |

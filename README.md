@@ -60,6 +60,20 @@ Reference ladder (100 games each; Elo of the first player relative to the second
 
 The bar for M4: the new network, with no search, scores ≥50% against Stockfish @ 1320.
 
+Tactics: the [Win At Chess](src/chess_rl/eval/suites/NOTICE.md) suite (300 positions, one move each), recorded in [`results/tactics.csv`](results/tactics.csv):
+
+```bash
+uv run chess-rl tactics run --player greedy --suite wac
+```
+
+| Player | WAC solved |
+|---|---|
+| random | 14 / 300 (4.7%) |
+| greedy (one-ply material) | 41 / 300 (13.7%) |
+| v0 baseline | 8 / 300 (2.7%) |
+| Stockfish 19 @ UCI_Elo 1320, 0.1 s/move | 71 / 300 (23.7%) |
+| Stockfish 19 full strength, 0.1 s/move | 266 / 300 (88.7%) |
+
 ## Play it in a chess GUI (UCI)
 
 Any player can run as a UCI engine:

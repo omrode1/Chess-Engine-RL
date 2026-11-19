@@ -15,6 +15,7 @@ def _runs_file(tmp_path, monkeypatch):
     path = tmp_path / "runs.jsonl"
     monkeypatch.setenv("CHESS_RL_RUNS_FILE", str(path))
     monkeypatch.setenv("CHESS_RL_ELO_CSV", str(tmp_path / "elo.csv"))
+    monkeypatch.setenv("CHESS_RL_TACTICS_CSV", str(tmp_path / "tactics.csv"))
     return path
 
 
