@@ -12,6 +12,7 @@
 
 - Install: `uv sync --extra cu130` (laptop GPU) or `uv sync --extra cpu`.
 - CLI: `uv run chess-rl --help`. Package code lives in `src/chess_rl/`; frozen v0 code in `baseline/` (do not extend it).
+- Stockfish: pinned Stockfish 19, installed by `uv run chess-rl stockfish install` into `~/.local/share/chess-rl/` (checksum-verified, no sudo). CI installs the same build. Never use the apt version for results.
 - Tests: `env -u PYTHONPATH uv run pytest`. The owner's shell sources ROS 2 Jazzy, whose `PYTHONPATH` leaks ROS pytest plugins into the venv and breaks collection.
 - Run `gh` with `-R omrode1/Chess-Engine-RL` from outside the repo (the sandboxed snap `gh` can't read `/etc/gitconfig`). Pass bodies on stdin (`--body-file -`); snap `gh` can't see `/tmp`.
 - Stacked PRs: never `--delete-branch` when merging a PR that another PR uses as its base. Deleting the branch auto-closes the dependent PR.

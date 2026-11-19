@@ -34,4 +34,12 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --extra cpu
+      - name: Cache pinned Stockfish
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/chess-rl/stockfish
+          key: stockfish-${{ hashFiles('src/chess_rl/eval/stockfish.py') }}
+      - run: uv run --no-sync chess-rl stockfish install
       - run: uv run --no-sync pytest
+        env:
+          CHESS_RL_REQUIRE_STOCKFISH: "1"  # fail instead of skipping Stockfish tests

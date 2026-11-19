@@ -27,7 +27,8 @@ cd Chess-Engine-RL
 uv sync --extra cu130   # NVIDIA GPU
 uv sync --extra cpu     # or CPU only
 
-uv run chess-rl info    # versions, hardware, device
+uv run chess-rl stockfish install   # pinned Stockfish 19 for evaluation (~80 MB, no sudo)
+uv run chess-rl info                # versions, hardware, device, Stockfish
 ```
 
 ## Usage
