@@ -29,6 +29,17 @@ dev = [
     "ruff>=0.8",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = ["slow: multi-second training runs"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:.*Gym has been unmaintained.*",
+    "ignore:You provided an OpenAI Gym environment.*:UserWarning",
+]
+
 [tool.uv]
 package = false  # scripts for now; becomes an installable package in M2 (#12)
 conflicts = [[{ extra = "cpu" }, { extra = "cu130" }]]

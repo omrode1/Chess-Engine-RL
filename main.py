@@ -72,9 +72,9 @@ def main():
     elif args.command == 'test':
         print("Starting testing mode...")   
         # Import test module here to avoid importing everything at startup
-        from test_agent import test_model
+        from eval_agent import evaluate_model
         
-        test_model(
+        evaluate_model(
             model_path=args.model,
             num_games=args.games,
             max_moves=args.max_moves,

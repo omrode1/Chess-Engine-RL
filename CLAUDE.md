@@ -8,6 +8,13 @@
 - Use Conventional Commits: `feat:`, `fix:`, `chore:`, `test:`, `docs:`, `refactor:`, `ci:`.
 - Do not commit generated artifacts: `__pycache__/`, model checkpoints, TensorBoard logs, CSVs, plots, PGNs, or datasets. Model weights go to GitHub Release assets.
 
+## Commands
+
+- Install: `uv sync --extra cu130` (laptop GPU) or `uv sync --extra cpu`.
+- Tests: `env -u PYTHONPATH uv run pytest`. The owner's shell sources ROS 2 Jazzy, whose `PYTHONPATH` leaks ROS pytest plugins into the venv and breaks collection.
+- Run `gh` with `-R omrode1/Chess-Engine-RL` from outside the repo (the sandboxed snap `gh` can't read `/etc/gitconfig`). Pass bodies on stdin (`--body-file -`); snap `gh` can't see `/tmp`.
+- Stacked PRs: never `--delete-branch` when merging a PR that another PR uses as its base. Deleting the branch auto-closes the dependent PR.
+
 ## Project
 
 - Goal: an engine built to beat one specific person (the owner, chess.com rapid ~1200) on laptop-class compute. It models him (Om-sim) and exploits that model in search and RL. The headline question: how much less compute does modelling the opponent need? The project is for a portfolio aimed at both technical and broad audiences.
