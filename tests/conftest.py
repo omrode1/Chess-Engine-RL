@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")  # callbacks plot during training; never open a window in tests
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")  # keep tests on CPU and deterministic
+if not os.environ.get("CHESS_RL_TEST_GPU"):  # tests run on CPU unless GPU tests are requested explicitly
+    os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 
 @pytest.fixture(autouse=True)
