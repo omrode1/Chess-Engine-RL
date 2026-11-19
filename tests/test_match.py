@@ -136,7 +136,7 @@ def test_v0_player_matches_v0_observation_and_plays_legal(tmp_path):
 
 
 @pytest.mark.timeout(120)
-def test_parallel_match_with_stockfish_finishes():
+def test_parallel_match_with_stockfish_finishes(caplog):
     import time
 
     from tests.test_players import HAVE_STOCKFISH
@@ -157,6 +157,7 @@ def test_parallel_match_with_stockfish_finishes():
     assert result.estimate.games == 4 and result.estimate.losses >= 3  # Stockfish wins
     assert sorted(seen) == [(i, 4) for i in range(1, 5)]
     assert time.monotonic() - t0 < 60
+    assert "did not exit" not in caplog.text  # workers must shut down cleanly, not be killed
 
 
 class _Stuck:

@@ -224,9 +224,10 @@ def _run_parallel(
     )
     processes = []
     records: list[GameRecord] = []
+    completed = False
     try:
         pending = {pool.submit(_play, t) for t in tasks}
-        processes = list(pool._processes.values())  # private, but the only handle for a bounded shutdown
+        processes = list(pool._processes.values())  # private, but the only handle for killing stuck workers
         while pending:
             done, pending = wait(pending, timeout=stall_timeout, return_when=FIRST_COMPLETED)
             if not done:
@@ -238,14 +239,21 @@ def _run_parallel(
                 records.append(future.result())
                 if progress:
                     progress(records[-1], len(records), len(tasks))
+        completed = True
     finally:
-        pool.shutdown(wait=False, cancel_futures=True)
-        for proc in processes:
-            proc.join(timeout=10)
-            if proc.is_alive():
-                log.warning("match worker %s did not exit; terminating it", proc.pid)
+        if not completed:  # stall or error: kill workers first so shutdown never waits on a stuck one
+            for proc in processes:
                 proc.terminate()
-                proc.join(timeout=5)
+        pool.shutdown(wait=False, cancel_futures=True)
+        # The executor's manager thread joins the workers (they close their engines on exit). Wait for
+        # it with a bound instead of joining the processes ourselves, which races with that thread.
+        manager = getattr(pool, "_executor_manager_thread", None)
+        if manager is not None:
+            manager.join(timeout=30)
+            if manager.is_alive():
+                log.warning("match workers did not exit within 30s; terminating them")
+                for proc in processes:
+                    proc.terminate()
     return records
 
 
