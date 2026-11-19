@@ -45,6 +45,8 @@ checkpoints/
 *.log
 *.csv
 !results/*.csv
+!results/**/*.log
+!results/**/*.csv
 *.png
 *.jpg
 pgn_games/

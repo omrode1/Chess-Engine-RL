@@ -4,3 +4,4 @@ date,player,suite,solved,total,score,git_sha
 2026-11-19,v0:path=chess_tactical_final,wac,8,300,0.0267,9ec42aba6d6a
 2026-11-19,"stockfish:elo=1320,movetime=0.1",wac,71,300,0.2367,9ec42aba6d6a
 2026-11-19,stockfish:movetime=0.1,wac,266,300,0.8867,9ec42aba6d6a
+2026-11-19,"net:path=m4-final.pt,device=cpu",wac,50,300,0.1667,935f9f79e7b3
