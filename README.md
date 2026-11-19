@@ -74,6 +74,14 @@ uv run chess-rl tactics run --player greedy --suite wac
 | Stockfish 19 @ UCI_Elo 1320, 0.1 s/move | 71 / 300 (23.7%) |
 | Stockfish 19 full strength, 0.1 s/move | 266 / 300 (88.7%) |
 
+## Watch games in the terminal
+
+```bash
+uv run chess-rl watch list runs/matches/<file>.pgn          # one line per game
+uv run chess-rl watch replay runs/matches/<file>.pgn --game 3
+uv run chess-rl watch live greedy "stockfish:elo=1320,movetime=0.3"
+```
+
 ## Play it in a chess GUI (UCI)
 
 Any player can run as a UCI engine:
