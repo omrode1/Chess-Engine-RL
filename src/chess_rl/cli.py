@@ -175,6 +175,19 @@ def _cmd_tactics(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_watch(args: argparse.Namespace) -> int:
+    from chess_rl.play import watch
+
+    color = not getattr(args, "no_color", False)
+    if args.watch_command == "list":
+        watch.list_games(args.pgn)
+    elif args.watch_command == "replay":
+        watch.replay(args.pgn, args.game, args.delay, color=color)
+    else:
+        watch.live(args.white, args.black, args.delay, args.max_plies, seed=args.seed, color=color)
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -220,6 +233,24 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--seed", type=int, default=0)
     run.add_argument("--no-record", action="store_true", help="do not append to results/tactics.csv")
     p.set_defaults(func=_cmd_tactics)
+
+    p = sub.add_parser("watch", help="view games in the terminal (replay PGNs or watch live)")
+    wsub = p.add_subparsers(dest="watch_command", required=True)
+    w = wsub.add_parser("list", help="one line per game in a PGN file")
+    w.add_argument("pgn")
+    w = wsub.add_parser("replay", help="animate a game from a PGN file")
+    w.add_argument("pgn")
+    w.add_argument("--game", type=int, default=1, help="game number (see watch list)")
+    w.add_argument("--delay", type=float, default=0.6, help="seconds per move")
+    w.add_argument("--no-color", action="store_true")
+    w = wsub.add_parser("live", help="watch two players play a game")
+    w.add_argument("white", help="player spec")
+    w.add_argument("black", help="player spec")
+    w.add_argument("--delay", type=float, default=0.3)
+    w.add_argument("--max-plies", type=int, default=400)
+    w.add_argument("--seed", type=int, default=None)
+    w.add_argument("--no-color", action="store_true")
+    p.set_defaults(func=_cmd_watch)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)
