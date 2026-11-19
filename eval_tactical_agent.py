@@ -9,33 +9,36 @@ from datetime import datetime
 from stable_baselines3 import DQN
 from src.chess_environment import ChessEnvWithOpeningBook
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Test a trained chess RL agent with tactical awareness')
-    parser.add_argument('--model', type=str, default='tactical_models/chess_tactical_final',
-                        help='Path to the trained model')
-    parser.add_argument('--games', type=int, default=5, help='Number of games to play')
-    parser.add_argument('--max_moves', type=int, default=50, help='Maximum moves per game')
-    parser.add_argument('--save_pgn', action='store_true', help='Save games in PGN format')
-    parser.add_argument('--pgn_dir', type=str, default='tactical_pgn_games', help='Directory to save PGN files')
-    parser.add_argument('--visualize', action='store_true', help='Visualize the board after each move')
-    parser.add_argument('--delay', type=float, default=0.5, help='Delay between moves when visualizing (seconds)')
-    parser.add_argument('--use_opening_book', action='store_true', help='Use opening book knowledge for testing')
-    parser.add_argument('--debug', action='store_true', help='Print debug information about actions')
-    parser.add_argument('--analyze_tactics', action='store_true', help='Print tactical analysis for each move')
-    
+    parser = argparse.ArgumentParser(description="Test a trained chess RL agent with tactical awareness")
+    parser.add_argument(
+        "--model", type=str, default="tactical_models/chess_tactical_final", help="Path to the trained model"
+    )
+    parser.add_argument("--games", type=int, default=5, help="Number of games to play")
+    parser.add_argument("--max_moves", type=int, default=50, help="Maximum moves per game")
+    parser.add_argument("--save_pgn", action="store_true", help="Save games in PGN format")
+    parser.add_argument("--pgn_dir", type=str, default="tactical_pgn_games", help="Directory to save PGN files")
+    parser.add_argument("--visualize", action="store_true", help="Visualize the board after each move")
+    parser.add_argument("--delay", type=float, default=0.5, help="Delay between moves when visualizing (seconds)")
+    parser.add_argument("--use_opening_book", action="store_true", help="Use opening book knowledge for testing")
+    parser.add_argument("--debug", action="store_true", help="Print debug information about actions")
+    parser.add_argument("--analyze_tactics", action="store_true", help="Print tactical analysis for each move")
+
     return parser.parse_args()
+
 
 def save_game_to_pgn(board, filename):
     """Save game to PGN format"""
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-    
+
     # Create PGN exporter
     game = chess.pgn.Game()
     game.headers["Event"] = "Chess RL Agent Test (Tactical Model)"
     game.headers["Date"] = datetime.now().strftime("%Y.%m.%d")
     game.headers["White"] = "Tactical RL Agent"
     game.headers["Black"] = "Tactical RL Agent"
-    
+
     # Set the result based on game state
     if board.is_checkmate():
         result = "1-0" if board.turn == chess.BLACK else "0-1"
@@ -44,43 +47,45 @@ def save_game_to_pgn(board, filename):
     else:
         # Incomplete game
         result = "*"
-    
+
     game.headers["Result"] = result
-    
+
     # Add moves
     move_count = 0
     node = game
     for move in board.move_stack:
         node = node.add_variation(move)
         move_count += 1
-    
+
     # Diagnostic information
     if move_count == 0:
         print(f"WARNING: No moves were recorded for this game! Board FEN: {board.fen()}")
-    
+
     # Write to file
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         f.write(str(game))
-    
+
     print(f"Game saved to {filename} with {move_count} moves")
+
 
 def map_to_legal_action(action, env):
     """Map the model's action to a legal action index"""
     # If action is already a valid index, return it
     if 0 <= action < len(env.legal_moves_list):
         return action
-    
+
     # Otherwise, map it to a valid index using modulo
     if len(env.legal_moves_list) > 0:
         return action % len(env.legal_moves_list)
-    
+
     # Fallback (should never happen as there are always legal moves until game over)
     return 0
+
 
 def analyze_move_tactics(board, move):
     """Analyze if a move has tactical significance"""
     analysis = []
-    
+
     # Check if capture
     is_capture = board.is_capture(move)
     if is_capture:
@@ -88,7 +93,7 @@ def analyze_move_tactics(board, move):
         attacker_piece = board.piece_at(move.from_square)
         if captured_piece and attacker_piece:
             analysis.append(f"Capture: {attacker_piece.symbol()} takes {captured_piece.symbol()}")
-    
+
     # Check if move defends a piece
     board.push(move)
     for square in chess.SQUARES:
@@ -98,28 +103,37 @@ def analyze_move_tactics(board, move):
                 analysis.append(f"Defending piece at {chess.square_name(square)}")
                 break
     board.pop()
-    
+
     # Check if it's a developing move in the opening
     if board.fullmove_number < 10:
         piece = board.piece_at(move.from_square)
         if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
             analysis.append("Development move")
-    
+
     # Check if move gives check
     board.push(move)
     if board.is_check():
         analysis.append("Check")
     board.pop()
-    
+
     return analysis if analysis else ["Normal move"]
 
-def evaluate_model(model_path='tactical_models/chess_tactical_final', 
-              num_games=5, max_moves=50, save_pgn=False, pgn_dir='tactical_pgn_games',
-              visualize=False, delay=0.5, use_opening_book=True, debug=False,
-              analyze_tactics=False):
+
+def evaluate_model(
+    model_path="tactical_models/chess_tactical_final",
+    num_games=5,
+    max_moves=50,
+    save_pgn=False,
+    pgn_dir="tactical_pgn_games",
+    visualize=False,
+    delay=0.5,
+    use_opening_book=True,
+    debug=False,
+    analyze_tactics=False,
+):
     """
     Test a trained chess RL agent with the given parameters.
-    
+
     Args:
         model_path: Path to the trained model
         num_games: Number of games to play
@@ -131,18 +145,18 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
         use_opening_book: Whether to use opening book knowledge
         debug: Whether to print debug information about actions
         analyze_tactics: Whether to print tactical analysis for each move
-        
+
     Returns:
         A dictionary with game statistics
     """
     # Create PGN directory if saving games
     if save_pgn:
         os.makedirs(pgn_dir, exist_ok=True)
-    
+
     # Load the model
     model = DQN.load(model_path)
     print(f"Loaded model from {model_path}")
-    
+
     # Statistics
     total_moves = 0
     checkmates = 0
@@ -152,81 +166,81 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
     opening_book_moves = 0
     total_rewards = 0
     captures = 0
-    
+
     # Play games
     for game_num in range(1, num_games + 1):
         print(f"\nGame {game_num}/{num_games}")
         print("=" * 40)
-        
+
         # Create environment
         env = ChessEnvWithOpeningBook(use_opening_book=use_opening_book)
         obs = env.reset()
-        
+
         # Game variables
         done = False
         moves = 0
         game_reward = 0
         game_opening_book_moves = 0
         game_captures = 0
-        
+
         # Play until done or max moves reached
         while not done and moves < max_moves:
             # Get action from model
             raw_action, _ = model.predict(obs, deterministic=True)
-            
+
             # Map to legal action
             action = map_to_legal_action(raw_action, env)
-            
+
             # Get the actual move
             move = env.legal_moves_list[action]
-            
+
             # Debug information
             if debug:
                 print(f"Original action: {raw_action}, Mapped to: {action}")
                 print(f"Legal moves count: {len(env.legal_moves_list)}")
                 print(f"Corresponding move: {move.uci()}")
-                    
+
                 # Print first few legal moves
                 if len(env.legal_moves_list) > 0:
                     print("Sample legal moves:")
                     for i, move in enumerate(env.legal_moves_list[:5]):
                         print(f"  {i}: {move.uci()}")
-            
+
             # Tactical analysis
             if analyze_tactics:
                 tactics = analyze_move_tactics(env.board, move)
-                print(f"Move {moves+1}: {move.uci()} - {', '.join(tactics)}")
-                
+                print(f"Move {moves + 1}: {move.uci()} - {', '.join(tactics)}")
+
             # Check if it's a capture
             if env.board.is_capture(move):
                 game_captures += 1
-            
+
             # Apply the action
             obs, reward, done, info = env.step(action)
-            
+
             # Check if this move followed the opening book
-            if info.get('followed_opening_book', False):
+            if info.get("followed_opening_book", False):
                 game_opening_book_moves += 1
-            
+
             moves += 1
             game_reward += reward
-            
+
             # Visualize if requested
             if visualize:
                 print(f"Move {moves}:")
                 print(env.board)
                 print(f"Reward: {reward:.2f}")
-                if info.get('followed_opening_book', False):
+                if info.get("followed_opening_book", False):
                     print("Following opening book!")
                 print()
                 time.sleep(delay)
-        
+
         # Game finished
         total_moves += moves
         total_rewards += game_reward
         opening_book_moves += game_opening_book_moves
         captures += game_captures
-        
+
         # Record outcome
         if env.board.is_checkmate():
             checkmates += 1
@@ -240,7 +254,7 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
         else:
             incomplete += 1
             outcome = "Incomplete (max moves reached)"
-        
+
         # Print game summary
         print(f"Game {game_num} finished after {moves} moves")
         print(f"Final position: {env.board.fen()}")
@@ -249,13 +263,13 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
         print(f"Captures: {game_captures}")
         print(f"Total reward: {game_reward:.2f}")
         print(f"Moves in board stack: {len(env.board.move_stack)}")
-        
+
         # Save to PGN if requested
         if save_pgn:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{pgn_dir}/tactical_game_{game_num}_{timestamp}.pgn"
             save_game_to_pgn(env.board, filename)
-    
+
     # Print overall statistics
     print("\nOverall Statistics:")
     print("=" * 40)
@@ -268,7 +282,7 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
     print(f"Stalemates: {stalemates} ({stalemates / num_games * 100:.1f}%)")
     print(f"Draws: {draws} ({draws / num_games * 100:.1f}%)")
     print(f"Incomplete games: {incomplete} ({incomplete / num_games * 100:.1f}%)")
-    
+
     # Return statistics as a dictionary
     return {
         "total_games": num_games,
@@ -282,12 +296,13 @@ def evaluate_model(model_path='tactical_models/chess_tactical_final',
         "checkmates": checkmates,
         "stalemates": stalemates,
         "draws": draws,
-        "incomplete": incomplete
+        "incomplete": incomplete,
     }
+
 
 def main():
     args = parse_args()
-    
+
     evaluate_model(
         model_path=args.model,
         num_games=args.games,
@@ -298,8 +313,9 @@ def main():
         delay=args.delay,
         use_opening_book=args.use_opening_book,
         debug=args.debug,
-        analyze_tactics=args.analyze_tactics
+        analyze_tactics=args.analyze_tactics,
     )
 
+
 if __name__ == "__main__":
-    main() 
+    main()

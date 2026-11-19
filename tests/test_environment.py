@@ -66,7 +66,9 @@ def test_env_with_opening_book_constructs():
 # drops shaped rewards, so these stay xfail until the v0 pipeline is removed (#27).
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="v0 bug: checkmate reward depends on colour (+0.5 White vs ~+3 Black)")
+@pytest.mark.xfail(
+    strict=True, raises=AssertionError, reason="v0 bug: checkmate reward depends on colour (+0.5 White vs ~+3 Black)"
+)
 def test_mating_move_reward_is_colour_symmetric():
     white, _, _ = play_uci(_fresh(), SCHOLARS_MATE)
     black, _, _ = play_uci(_fresh(), FOOLS_MATE)
@@ -74,7 +76,9 @@ def test_mating_move_reward_is_colour_symmetric():
     assert white[-1] > 5
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="v0 bug: is_capture is evaluated after the move is pushed")
+@pytest.mark.xfail(
+    strict=True, raises=AssertionError, reason="v0 bug: is_capture is evaluated after the move is pushed"
+)
 def test_quiet_move_is_not_rewarded_as_capture():
     e = _fresh()
     e.board.push(chess.Move.from_uci("e2e4"))
