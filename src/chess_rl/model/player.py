@@ -26,10 +26,15 @@ class NetPlayer:
         temperature: float = 0.0,
         seed: int | None = None,
         name: str = "net",
+        threads: int = 1,
     ):
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(device)
+        if self.device.type == "cpu":
+            # One thread per player: matches run many players in parallel processes, and torch's default
+            # (all cores each) oversubscribes the CPU badly.
+            torch.set_num_threads(threads)
         if model is None:
             if path is None:
                 raise ValueError("NetPlayer needs a checkpoint path or a model")

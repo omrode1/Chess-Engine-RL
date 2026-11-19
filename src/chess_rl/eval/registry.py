@@ -54,7 +54,7 @@ def _v0(params: dict[str, str], seed: int | None, name: str | None) -> Player:
 def _net(params: dict[str, str], seed: int | None, name: str | None) -> Player:
     from chess_rl.model.player import NetPlayer
 
-    allowed = {"path", "temperature", "device"}
+    allowed = {"path", "temperature", "device", "threads"}
     unknown = set(params) - allowed
     if unknown or "path" not in params:
         raise ValueError(f"net player needs path=...; allowed keys {sorted(allowed)}")
@@ -64,6 +64,7 @@ def _net(params: dict[str, str], seed: int | None, name: str | None) -> Player:
         temperature=float(params.get("temperature", 0)),
         seed=seed,
         name=name or "net",
+        threads=int(params.get("threads", 1)),
     )
 
 
