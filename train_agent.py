@@ -184,16 +184,19 @@ def train_model(
     print("Illegal moves will be masked during training to improve action selection.")
     print("The environment wrapper ensures actions are always mapped to legal moves.")
 
-    # Train the model
+    # Train the model. Real errors propagate; only Ctrl-C is handled, with a clearly named save.
     try:
         model.learn(
             total_timesteps=total_timesteps,
             callback=callbacks,
             log_interval=100,  # Print stats every 100 updates
         )
-        print("Training completed successfully!")
-    except Exception as e:
-        print(f"Training was interrupted: {e}")
+    except KeyboardInterrupt:
+        interrupted_path = f"{model_dir}/chess_with_opening_book_interrupted"
+        model.save(interrupted_path)
+        print(f"Training interrupted by user; model saved to {interrupted_path}")
+        return model
+    print("Training completed successfully!")
 
     # Save the final model
     final_model_path = f"{model_dir}/chess_with_opening_book_final"
