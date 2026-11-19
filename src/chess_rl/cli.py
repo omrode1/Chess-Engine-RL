@@ -222,6 +222,18 @@ def _cmd_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_train_sl(args: argparse.Namespace) -> int:
+    from chess_rl.train.supervised import TrainConfig, train
+
+    conf = cfg.load(TrainConfig, args.config, cfg.parse_set_args(args.set or []))
+    device = pick_device(conf.device)
+    with track_run("train-sl", conf, seed=conf.seed, device=device) as run:
+        summary = train(conf, resume=args.resume)
+        run.outputs.update(summary)
+    print(json.dumps(summary, indent=2, default=str))
+    return 0 if summary["stop_reason"] in ("completed", "max_hours") else 1
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -294,6 +306,13 @@ def build_parser() -> argparse.ArgumentParser:
     st = dsub.add_parser("stats", help="show a dataset's manifest summary")
     st.add_argument("dir")
     p.set_defaults(func=_cmd_data)
+
+    p = sub.add_parser("train", help="train networks")
+    trsub = p.add_subparsers(dest="train_command", required=True)
+    sl = trsub.add_parser("sl", help="supervised pretraining on a Lichess dataset (M4)")
+    _add_config_args(sl)
+    sl.add_argument("--resume", help="checkpoint to resume from (e.g. runs/m4/latest.pt)")
+    sl.set_defaults(func=_cmd_train_sl)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)

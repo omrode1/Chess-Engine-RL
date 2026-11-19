@@ -1,0 +1,21 @@
+# M4 supervised pretraining on the 30M-position Lichess set (both players >= 1800).
+# Usage: uv run chess-rl train sl --config configs/train/m4.yaml   (resume: add --resume runs/m4/latest.pt)
+data_dir: data/lichess/strength-1800-2026-10
+out_dir: runs/m4
+blocks: 10
+filters: 128
+se: true
+batch_size: 1024
+lr: 0.001
+weight_decay: 0.0001
+warmup_steps: 1000
+epochs: 3.0
+value_weight: 1.0
+grad_clip: 1.0
+log_every: 200
+val_every: 5000
+val_positions: 200_000
+ckpt_every: 2000
+max_hours: 6.0
+seed: 0
+device: auto
