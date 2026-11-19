@@ -102,7 +102,7 @@ The agent learns through a sophisticated reward system that encourages good ches
   - Center control: Reward for controlling center squares
   - Castling: Significant bonus for completing castling
   - Check: Reward for putting the opponent in check
-- **Development**: 
+- **Development**:
   - Rewards for developing knights and bishops in the opening
   - Rewards for piece mobility and activity
 - **Pawn Structure**: Rewards for protected pawns and good pawn structure
@@ -185,6 +185,17 @@ The trained agent demonstrates:
 - Enhance the neural network architecture for better spatial understanding
 - Create a chess engine interface for playing against humans
 
+## Development
+
+```bash
+uv sync --extra cpu            # or --extra cu130
+uvx pre-commit install         # ruff lint + format on every commit
+uv run pytest                  # tests (CPU, ~40 s)
+uv run ruff check . && uv run ruff format --check .
+```
+
+CI runs lint and tests on every pull request.
+
 ## License
 
 [MIT License](LICENSE)
@@ -201,4 +212,4 @@ For questions or feedback, please open an issue or contact [your-email@example.c
 
 ---
 
-Happy training! 
+Happy training!

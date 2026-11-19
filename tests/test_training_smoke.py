@@ -32,8 +32,17 @@ class _ShortEpisodes(gym.Wrapper):
 def _model(level=3, short_episodes=False):
     make = tactical.make_env(0, use_opening_book=False, level=level)
     env = DummyVecEnv([(lambda: _ShortEpisodes(make())) if short_episodes else make])
-    return DQN(tactical.MaskedDQNPolicy, env, learning_starts=50, buffer_size=1_000,
-               batch_size=32, train_freq=1, device="cpu", verbose=0, seed=0)
+    return DQN(
+        tactical.MaskedDQNPolicy,
+        env,
+        learning_starts=50,
+        buffer_size=1_000,
+        batch_size=32,
+        train_freq=1,
+        device="cpu",
+        verbose=0,
+        seed=0,
+    )
 
 
 def test_dqn_learns_without_callbacks():
@@ -49,21 +58,37 @@ def test_model_predicts_in_range_action():
     assert 0 <= int(action[0]) < 218
 
 
-@pytest.mark.xfail(strict=True, raises=ValueError, reason="#7: MetricsLogger.on_training_end raises 'All arrays must be of the same length'")
+@pytest.mark.xfail(
+    strict=True,
+    raises=ValueError,
+    reason="#7: MetricsLogger.on_training_end raises 'All arrays must be of the same length'",
+)
 def test_learn_with_metrics_callbacks_completes(tmp_path):
     model = _model(short_episodes=True)
-    model.learn(300, callback=CallbackList([MetricsLogger(log_dir=str(tmp_path)),
-                                            ActionQualityMonitor(log_dir=str(tmp_path))]))
+    model.learn(
+        300, callback=CallbackList([MetricsLogger(log_dir=str(tmp_path)), ActionQualityMonitor(log_dir=str(tmp_path))])
+    )
 
 
-@pytest.mark.xfail(strict=True, raises=TypeError, reason="#8: MaskedDQNPolicy.train shadows nn.Module.train, breaking eval()")
+@pytest.mark.xfail(
+    strict=True, raises=TypeError, reason="#8: MaskedDQNPolicy.train shadows nn.Module.train, breaking eval()"
+)
 def test_policy_eval_mode_works():
     _model().policy.eval()
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="#7/#8: curriculum stops after stage 1; stage 2 would crash on replay_buffer=None")
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="#7/#8: curriculum stops after stage 1; stage 2 would crash on replay_buffer=None",
+)
 def test_curriculum_runs_all_stages(tmp_path):
-    tactical.train_model(total_timesteps=4_000, model_dir=str(tmp_path / "m"), log_dir=str(tmp_path / "l"),
-                         use_opening_book=False, num_envs=1)
+    tactical.train_model(
+        total_timesteps=4_000,
+        model_dir=str(tmp_path / "m"),
+        log_dir=str(tmp_path / "l"),
+        use_opening_book=False,
+        num_envs=1,
+    )
     saved = sorted(p.name for p in (tmp_path / "m").glob("*_complete.zip"))
     assert len(saved) == 4, saved
