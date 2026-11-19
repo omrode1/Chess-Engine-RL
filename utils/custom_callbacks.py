@@ -54,10 +54,9 @@ class MetricsLogger(BaseCallback):
         # For tracking positions within episodes
         self.current_positions = []
 
-        # Set up CSV logger
-        self.csv_file = open(os.path.join(self.csv_dir, "training_metrics.csv"), "w", newline="")
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Timestep", "Reward", "Episode Length", "Material Balance"])
+        # CSV logger is opened when training starts and closed when it ends
+        self.csv_file = None
+        self.csv_writer = None
 
         # Metrics tracking
         self.material_balances = []
@@ -66,6 +65,11 @@ class MetricsLogger(BaseCallback):
         # For averaging metrics
         self.current_episode_length = 0
         self.current_episode_material = []
+
+    def _on_training_start(self) -> None:
+        self.csv_file = open(os.path.join(self.csv_dir, "training_metrics.csv"), "w", newline="")  # noqa: SIM115
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(["Timestep", "Reward", "Episode Length", "Material Balance"])
 
     def _on_step(self) -> bool:
         # Get info from the most recent step - handle both vectorized and non-vectorized envs
@@ -126,6 +130,7 @@ class MetricsLogger(BaseCallback):
                 self.material_balances.append(0)
 
             # Record metrics
+            self.timesteps.append(self.num_timesteps)
             self.metrics_data["timesteps"].append(self.num_timesteps)
             self.metrics_data["episode"].append(self.episode_count)
             self.metrics_data["reward"].append(self.current_episode_reward)
@@ -228,10 +233,15 @@ class MetricsLogger(BaseCallback):
         plt.savefig(os.path.join(self.plots_dir, f"metrics_plot_{timestep}.png"))
         plt.close()
 
-    def on_training_end(self):
-        """Clean up and create final plots on training end"""
-        self.csv_file.close()
+    def _on_training_end(self) -> None:
+        """Close the CSV and write the final plots and summary."""
+        try:
+            self._write_final_outputs()
+        finally:
+            if self.csv_file is not None:
+                self.csv_file.close()
 
+    def _write_final_outputs(self) -> None:
         # Create final plots
         self._plot_metrics()
 
@@ -276,10 +286,9 @@ class ActionQualityMonitor(BaseCallback):
         os.makedirs(f"{log_dir}/plots", exist_ok=True)
         os.makedirs(f"{log_dir}/csv", exist_ok=True)
 
-        # Set up CSV logger for action quality
-        self.csv_file = open(f"{log_dir}/csv/action_quality.csv", "w", newline="")
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Timestep", "Legal Actions", "Illegal Actions", "Legal Action Rate"])
+        # CSV logger is opened when training starts and closed when it ends
+        self.csv_file = None
+        self.csv_writer = None
 
         # Metrics tracking
         self.legal_actions = 0
@@ -287,6 +296,11 @@ class ActionQualityMonitor(BaseCallback):
         self.legal_action_rates = []
         self.timesteps_log = []
         self.log_frequency = 1000  # Log every 1000 steps
+
+    def _on_training_start(self) -> None:
+        self.csv_file = open(f"{self.log_dir}/csv/action_quality.csv", "w", newline="")  # noqa: SIM115
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(["Timestep", "Legal Actions", "Illegal Actions", "Legal Action Rate"])
 
     def _on_step(self) -> bool:
         # Check the reward value to determine if the move was valid
@@ -348,10 +362,15 @@ class ActionQualityMonitor(BaseCallback):
         plt.savefig(f"{self.log_dir}/plots/action_quality.png")
         plt.close()
 
-    def on_training_end(self):
-        """Clean up on training end"""
-        self.csv_file.close()
+    def _on_training_end(self) -> None:
+        """Close the CSV, write the final plot, and print a summary."""
+        try:
+            self._write_final_outputs()
+        finally:
+            if self.csv_file is not None:
+                self.csv_file.close()
 
+    def _write_final_outputs(self) -> None:
         # Create final plot
         if len(self.timesteps_log) > 1:  # Only plot if we have multiple data points
             self._plot_action_quality()

@@ -58,16 +58,22 @@ def test_model_predicts_in_range_action():
     assert 0 <= int(action[0]) < 218
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ValueError,
-    reason="#7: MetricsLogger.on_training_end raises 'All arrays must be of the same length'",
-)
 def test_learn_with_metrics_callbacks_completes(tmp_path):
     model = _model(short_episodes=True)
-    model.learn(
-        300, callback=CallbackList([MetricsLogger(log_dir=str(tmp_path)), ActionQualityMonitor(log_dir=str(tmp_path))])
-    )
+    metrics = MetricsLogger(log_dir=str(tmp_path))
+    model.learn(300, callback=CallbackList([metrics, ActionQualityMonitor(log_dir=str(tmp_path))]))
+    assert metrics.episode_count >= 20
+    assert len(metrics.timesteps) == metrics.episode_count
+    assert metrics.csv_file.closed
+    summary = (tmp_path / "csv" / "all_metrics.csv").read_text().splitlines()
+    assert len(summary) == metrics.episode_count + 1  # header + one row per episode
+    assert (tmp_path / "csv" / "action_quality.csv").exists()
+
+
+def test_callbacks_do_not_open_files_until_training_starts(tmp_path):
+    MetricsLogger(log_dir=str(tmp_path))
+    ActionQualityMonitor(log_dir=str(tmp_path))
+    assert not list((tmp_path / "csv").iterdir())
 
 
 @pytest.mark.xfail(
