@@ -41,6 +41,16 @@ uv run chess-rl baseline eval-random --model runs/baseline/models/chess_tactical
 
 Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours. New subcommands arrive with each milestone: data, train, match, uci, play.
 
+## Train the network (M4)
+
+```bash
+uv run chess-rl data build --config configs/data/strength.yaml   # ~9 min: 30M positions from Lichess (both >= 1800)
+uv run chess-rl train sl --config configs/train/m4.yaml           # ~3.5 h on an RTX 3050; --resume runs/m4/latest.pt
+# progress lines go to stderr; validation history to runs/m4/history.jsonl
+```
+
+The data is streamed from the [Lichess open database](https://database.lichess.org/) (CC0) and stored compactly (~117 B/position). Training writes `best.pt`/`latest.pt` checkpoints, validation history, and a compute record in `results/runs.jsonl`.
+
 ## Evaluation
 
 ```bash
