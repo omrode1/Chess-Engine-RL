@@ -188,6 +188,40 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_data(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from chess_rl.data import lichess
+
+    if args.data_command == "stats":
+        manifest = json.loads((Path(args.dir) / "manifest.json").read_text())
+        print(json.dumps({k: manifest[k] for k in ("source", "filter", "stats")}, indent=2))
+        return 0
+    conf = cfg.load(cfg.DataBuildConfig, args.config, cfg.parse_set_args(args.set or []))
+    game_filter = lichess.GameFilter(
+        min_elo=conf.min_elo, max_elo=conf.max_elo, time_classes=tuple(conf.time_classes.split(","))
+    )
+    out_dir = Path(conf.out_root) / conf.name
+    url = args.url or lichess.month_url(conf.month)
+    print(f"building {out_dir} from {url}", file=sys.stderr, flush=True)
+    with track_run("data-build", conf, device="cpu") as run:
+        manifest = lichess.build(
+            url,
+            out_dir,
+            game_filter,
+            target_positions=conf.target_positions,
+            shard_size=conf.shard_size,
+            val_every=conf.val_every,
+            workers=conf.workers,
+            max_bytes=int(conf.max_gb * 1e9),
+            stall_timeout=conf.stall_timeout,
+            progress=lichess.print_progress,
+        )
+        run.outputs.update(out_dir=str(out_dir), **manifest["stats"])
+    print(json.dumps(manifest["stats"], indent=2))
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -251,6 +285,15 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--seed", type=int, default=None)
     w.add_argument("--no-color", action="store_true")
     p.set_defaults(func=_cmd_watch)
+
+    p = sub.add_parser("data", help="build and inspect training datasets")
+    dsub = p.add_subparsers(dest="data_command", required=True)
+    b = dsub.add_parser("build", help="stream a Lichess month into train/val shards")
+    _add_config_args(b)
+    b.add_argument("--url", help="override the source URL (e.g. a local file:// copy)")
+    st = dsub.add_parser("stats", help="show a dataset's manifest summary")
+    st.add_argument("dir")
+    p.set_defaults(func=_cmd_data)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)

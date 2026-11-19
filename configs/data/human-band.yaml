@@ -1,0 +1,12 @@
+# M6 human-model base set (#35): both players 1000-1600 (around the owner's level).
+name: human-1000-1600-2026-10
+month: "2026-10"
+min_elo: 1000
+max_elo: 1600
+time_classes: blitz,rapid,classical
+target_positions: 30_000_000
+shard_size: 1_000_000
+val_every: 50
+workers: 12
+out_root: data/lichess
+max_gb: 12

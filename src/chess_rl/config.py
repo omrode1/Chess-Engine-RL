@@ -41,6 +41,24 @@ class BaselineEvalConfig:
     json_out: str | None = None
 
 
+@dataclasses.dataclass(frozen=True)
+class DataBuildConfig:
+    """Lichess shard build (chess_rl.data.lichess). One directory per dataset under out_root/name."""
+
+    name: str = "strength-1800"
+    month: str = "2026-10"
+    min_elo: int = 1800
+    max_elo: int = 4000
+    time_classes: str = "blitz,rapid,classical"
+    target_positions: int = 30_000_000
+    shard_size: int = 1_000_000
+    val_every: int = 50
+    workers: int = 12
+    out_root: str = "data/lichess"
+    max_gb: float = 12.0  # hard cap on compressed bytes streamed
+    stall_timeout: float = 120.0
+
+
 def to_dict(config: Any) -> dict[str, Any]:
     return dataclasses.asdict(config)
 
