@@ -16,7 +16,9 @@ from chess_rl.model.network import (
     export_torchscript,
     load_checkpoint,
     masked_log_softmax,
+    prepare_input,
     save_checkpoint,
+    to_device,
 )
 from chess_rl.model.player import NetPlayer
 
@@ -88,8 +90,9 @@ def test_net_player_plays_legal_games(tmp_path):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA GPU")
 def test_default_net_inference_speed_on_gpu():
     """#21 done-when: batch-256 forward under 15 ms on the target GPU (fp16 autocast)."""
-    net = ChessNet(NetConfig()).cuda().eval()
-    x = torch.from_numpy(np.random.rand(256, NUM_PLANES, 8, 8).astype(np.float32)).cuda()
+    torch.backends.cudnn.benchmark = True
+    net = to_device(ChessNet(NetConfig()), "cuda").eval()  # the production path: channels_last on CUDA
+    x = prepare_input(torch.from_numpy(np.random.rand(256, NUM_PLANES, 8, 8).astype(np.float32)).cuda())
     with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
         for _ in range(5):
             net(x)
