@@ -107,6 +107,18 @@ def _cmd_match(args: argparse.Namespace) -> int:
 
     from chess_rl.eval.match import append_elo_row, run_match
 
+    scores: list[float] = []
+
+    def progress(record, done: int, total: int) -> None:
+        """One line per finished game on stderr, with player A's running score."""
+        scores.append(record.score_a)
+        print(
+            f"[{done}/{total}] game {record.index + 1}: {record.result} ({record.termination}, {record.plies} plies)"
+            f"  running score {100 * sum(scores) / len(scores):.1f}%",
+            file=sys.stderr,
+            flush=True,
+        )
+
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     pgn = args.pgn or f"runs/matches/{stamp}.pgn"
     conf = {k: getattr(args, k) for k in ("a", "b", "games", "workers", "opening_plies", "max_plies", "seed")}
@@ -120,6 +132,8 @@ def _cmd_match(args: argparse.Namespace) -> int:
             max_plies=args.max_plies,
             seed=args.seed,
             pgn_path=pgn,
+            stall_timeout=args.stall_timeout,
+            progress=progress,
         )
         run.outputs.update(result.estimate.as_dict(), pgn=str(result.pgn_path), terminations=result.terminations())
     print(f"{result.player_a} vs {result.player_b}: {result.estimate}")
@@ -158,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--pgn", help="where to write the games (default runs/matches/<timestamp>.pgn)")
     p.add_argument("--no-record", action="store_true", help="do not append to results/elo.csv")
+    p.add_argument("--stall-timeout", type=float, default=300.0, help="abort if no game finishes for this long (s)")
     p.set_defaults(func=_cmd_match)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")

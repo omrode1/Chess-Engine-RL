@@ -130,3 +130,63 @@ def test_v0_player_matches_v0_observation_and_plays_legal(tmp_path):
     player = make_player(f"v0:path={tmp_path / 'v0'}")
     board = chess.Board()
     assert player.choose(board) in board.legal_moves
+
+
+# --- robustness (regression: matches vs Stockfish deadlocked at worker exit) --
+
+
+@pytest.mark.timeout(120)
+def test_parallel_match_with_stockfish_finishes():
+    import time
+
+    from tests.test_players import HAVE_STOCKFISH
+
+    if not HAVE_STOCKFISH:
+        pytest.skip("Stockfish not installed")
+    seen = []
+    t0 = time.monotonic()
+    result = run_match(
+        "random",
+        "stockfish:elo=1320,movetime=0.02",
+        games=4,
+        workers=2,
+        max_plies=200,
+        stall_timeout=60,
+        progress=lambda rec, done, total: seen.append((done, total)),
+    )
+    assert result.estimate.games == 4 and result.estimate.losses >= 3  # Stockfish wins
+    assert sorted(seen) == [(i, 4) for i in range(1, 5)]
+    assert time.monotonic() - t0 < 60
+
+
+class _Stuck:
+    name = "stuck"
+
+    def new_game(self):
+        pass
+
+    def choose(self, board, clock=None):
+        import time
+
+        time.sleep(3600)
+
+    def close(self):
+        pass
+
+
+@pytest.mark.timeout(60)
+def test_stalled_match_fails_loudly(monkeypatch):
+    """A worker that never finishes must raise TimeoutError and be terminated, not waited on forever."""
+    import multiprocessing
+    import time
+
+    from chess_rl.eval import registry
+    from chess_rl.eval.match import _run_parallel, _tasks
+
+    monkeypatch.setitem(registry._BUILDERS, "stuck", lambda p, seed, name: _Stuck())
+    fork = multiprocessing.get_context("fork")  # fork so the worker inherits the patched registry
+    monkeypatch.setattr("chess_rl.eval.match.mp.get_context", lambda method: fork)
+    t0 = time.monotonic()
+    with pytest.raises(TimeoutError, match="no game finished"):
+        _run_parallel(list(_tasks(2, 0, 0)), "stuck", "random", 50, workers=1, stall_timeout=3, progress=None)
+    assert time.monotonic() - t0 < 30

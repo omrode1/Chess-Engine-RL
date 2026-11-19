@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import multiprocessing as mp
+import multiprocessing.util
 import os
 import random
-from collections.abc import Iterator
-from concurrent.futures import ProcessPoolExecutor
+from collections.abc import Callable, Iterator
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +27,8 @@ from chess_rl.eval.game import play_game
 from chess_rl.eval.registry import display_name, make_player
 from chess_rl.openings import OpeningBook
 from chess_rl.system import REPO_ROOT, git_info
+
+log = logging.getLogger(__name__)
 
 ELO_CSV = REPO_ROOT / "results" / "elo.csv"
 
@@ -93,6 +97,21 @@ _WORKER: dict[str, object] = {}
 
 def _init_worker(spec_a: str, spec_b: str, max_plies: int) -> None:
     _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, players={})
+    # Close engines when the worker exits. python-chess runs each engine on a non-daemon thread, and an
+    # unclosed engine blocks the worker's interpreter shutdown forever (this deadlocked matches vs
+    # Stockfish). multiprocessing runs these finalizers before it joins threads.
+    multiprocessing.util.Finalize(None, _close_players, exitpriority=10)
+
+
+def _close_players() -> None:
+    players = _WORKER.get("players") or {}
+    assert isinstance(players, dict)
+    for player in players.values():
+        try:
+            player.close()
+        except Exception:  # best effort during shutdown
+            log.exception("closing %s failed", getattr(player, "name", player))
+    players.clear()
 
 
 def _player(key: str, seed: int):
@@ -159,21 +178,27 @@ def run_match(
     max_plies: int = 400,
     seed: int = 0,
     pgn_path: str | Path | None = None,
+    stall_timeout: float = 300.0,
+    progress: Callable[[GameRecord, int, int], None] | None = None,
 ) -> MatchResult:
+    """Play `games` games between two player specs.
+
+    stall_timeout: abort with TimeoutError if no game finishes for this many seconds (a hung engine or
+    worker must fail loudly, not wait forever). progress(record, done, total) is called after each game.
+    """
     tasks = list(_tasks(games, opening_plies, seed))
     if workers <= 1:
-        _init_worker(spec_a, spec_b, max_plies)
+        _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, players={})
+        records = []
         try:
-            records = [_play(t) for t in tasks]
+            for t in tasks:
+                records.append(_play(t))
+                if progress:
+                    progress(records[-1], len(records), len(tasks))
         finally:
-            for p in _WORKER.get("players", {}).values():  # type: ignore[union-attr]
-                p.close()
+            _close_players()
     else:
-        ctx = mp.get_context("spawn")
-        with ProcessPoolExecutor(
-            workers, mp_context=ctx, initializer=_init_worker, initargs=(spec_a, spec_b, max_plies)
-        ) as pool:
-            records = list(pool.map(_play, tasks))
+        records = _run_parallel(tasks, spec_a, spec_b, max_plies, workers, stall_timeout, progress)
     records.sort(key=lambda r: r.index)
     wins = sum(r.score_a == 1.0 for r in records)
     draws = sum(r.score_a == 0.5 for r in records)
@@ -183,6 +208,45 @@ def run_match(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("".join(r.pgn for r in records))
     return MatchResult(display_name(spec_a), display_name(spec_b), estimate(wins, draws, losses), records, path)
+
+
+def _run_parallel(
+    tasks: list[GameTask],
+    spec_a: str,
+    spec_b: str,
+    max_plies: int,
+    workers: int,
+    stall_timeout: float,
+    progress: Callable[[GameRecord, int, int], None] | None,
+) -> list[GameRecord]:
+    pool = ProcessPoolExecutor(
+        workers, mp_context=mp.get_context("spawn"), initializer=_init_worker, initargs=(spec_a, spec_b, max_plies)
+    )
+    processes = []
+    records: list[GameRecord] = []
+    try:
+        pending = {pool.submit(_play, t) for t in tasks}
+        processes = list(pool._processes.values())  # private, but the only handle for a bounded shutdown
+        while pending:
+            done, pending = wait(pending, timeout=stall_timeout, return_when=FIRST_COMPLETED)
+            if not done:
+                raise TimeoutError(
+                    f"no game finished in {stall_timeout:.0f}s ({len(records)}/{len(tasks)} done): "
+                    "a player or worker is stuck"
+                )
+            for future in done:
+                records.append(future.result())
+                if progress:
+                    progress(records[-1], len(records), len(tasks))
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+        for proc in processes:
+            proc.join(timeout=10)
+            if proc.is_alive():
+                log.warning("match worker %s did not exit; terminating it", proc.pid)
+                proc.terminate()
+                proc.join(timeout=5)
+    return records
 
 
 def append_elo_row(
