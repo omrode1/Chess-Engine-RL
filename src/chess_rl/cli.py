@@ -102,6 +102,33 @@ def _cmd_stockfish(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_match(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from chess_rl.eval.match import append_elo_row, run_match
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    pgn = args.pgn or f"runs/matches/{stamp}.pgn"
+    conf = {k: getattr(args, k) for k in ("a", "b", "games", "workers", "opening_plies", "max_plies", "seed")}
+    with track_run("match", conf, seed=args.seed, device="cpu") as run:
+        result = run_match(
+            args.a,
+            args.b,
+            games=args.games,
+            workers=args.workers,
+            opening_plies=args.opening_plies,
+            max_plies=args.max_plies,
+            seed=args.seed,
+            pgn_path=pgn,
+        )
+        run.outputs.update(result.estimate.as_dict(), pgn=str(result.pgn_path), terminations=result.terminations())
+    print(f"{result.player_a} vs {result.player_b}: {result.estimate}")
+    print(f"terminations: {result.terminations()}  games: {result.pgn_path}")
+    if not args.no_record:
+        append_elo_row(result, args.opening_plies, args.max_plies, args.seed)
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -120,6 +147,18 @@ def build_parser() -> argparse.ArgumentParser:
     inst.add_argument("--force", action="store_true", help="reinstall even if present")
     ssub.add_parser("path", help="print the Stockfish binary that will be used")
     p.set_defaults(func=_cmd_stockfish)
+
+    p = sub.add_parser("match", help="play a match between two players and estimate Elo")
+    p.add_argument("a", help="player spec, e.g. greedy, stockfish:elo=1500,movetime=0.1, v0:path=...")
+    p.add_argument("b", help="opponent spec")
+    p.add_argument("--games", type=int, default=100)
+    p.add_argument("--workers", type=int, default=4, help="parallel game processes")
+    p.add_argument("--opening-plies", type=int, default=8, help="max plies of opening-book moves per pair")
+    p.add_argument("--max-plies", type=int, default=400, help="adjudicate as a draw after this many plies")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--pgn", help="where to write the games (default runs/matches/<timestamp>.pgn)")
+    p.add_argument("--no-record", action="store_true", help="do not append to results/elo.csv")
+    p.set_defaults(func=_cmd_match)
 
     base = sub.add_parser("baseline", help="v0 DQN baseline (frozen; see docs/postmortem-v0.md)")
     bsub = base.add_subparsers(dest="baseline_command", required=True)

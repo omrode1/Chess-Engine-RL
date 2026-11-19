@@ -46,6 +46,10 @@ class RandomPlayer:
         self.name = name
         self._rng = random.Random(seed)
 
+    def reseed(self, seed: int) -> None:
+        """Reset the RNG (matches call this per game so results do not depend on worker scheduling)."""
+        self._rng.seed(seed)
+
     def new_game(self) -> None:
         pass
 
@@ -73,6 +77,10 @@ class MaterialGreedyPlayer:
     def __init__(self, seed: int | None = None, name: str = "greedy"):
         self.name = name
         self._rng = random.Random(seed)
+
+    def reseed(self, seed: int) -> None:
+        """Reset the RNG (matches call this per game so results do not depend on worker scheduling)."""
+        self._rng.seed(seed)
 
     def new_game(self) -> None:
         pass
