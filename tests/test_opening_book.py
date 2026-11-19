@@ -2,7 +2,7 @@ import random
 
 import chess
 
-from utils.opening_book import OpeningBook
+from chess_rl.openings import OpeningBook
 
 
 def test_book_has_expected_positions():

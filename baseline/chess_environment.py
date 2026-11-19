@@ -6,7 +6,8 @@ import gym
 import numpy as np
 from gym import spaces
 
-from utils.opening_book import OpeningBook
+from chess_rl.openings import OpeningBook
+from chess_rl.positions import fens as curriculum_fens
 
 
 class ChessEnvWithOpeningBook(gym.Env):
@@ -70,47 +71,11 @@ class ChessEnvWithOpeningBook(gym.Env):
             # Use custom FEN position if provided
             self.board = chess.Board(self.start_position)
         elif self.curriculum_level == 0:
-            # Full game - start from standard position
+            # Full game - start from standard position (no RNG draw, as in v0)
             self.board = chess.Board()
-        elif self.curriculum_level == 1:
-            # Midgame positions - start from common midgame positions
-            midgame_positions = [
-                # Open game with development
-                "r1bqkbnr/ppp2ppp/2np4/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
-                # Semi-open game
-                "rnbqkb1r/pp3ppp/2p1pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 6",
-                # Closed position
-                "r1bqk2r/ppp2ppp/2n1pn2/3p4/1bPP4/2NBP3/PP3PPP/R1BQK1NR w KQkq - 0 7",
-                # Open with early queen exchange
-                "rnb1kbnr/pppp1ppp/8/4p3/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 0 4",
-            ]
-            self.board = chess.Board(random.choice(midgame_positions))
-        elif self.curriculum_level == 2:
-            # Endgame positions - fewer pieces, clearer objectives
-            endgame_positions = [
-                # Rook endgame
-                "8/5pk1/7p/8/5P2/5K2/7P/4R3 w - - 0 1",
-                # Pawn endgame
-                "8/5p2/5k2/8/5P2/8/5K2/8 w - - 0 1",
-                # Queen vs rook endgame
-                "8/8/5k2/8/8/3Q4/5K2/7r w - - 0 1",
-                # Bishop and knight checkmate
-                "8/8/5k2/8/8/3B4/5K2/5N2 w - - 0 1",
-            ]
-            self.board = chess.Board(random.choice(endgame_positions))
-        elif self.curriculum_level == 3:
-            # Tactical puzzles - positions with forced tactical solutions
-            tactical_positions = [
-                # Fork opportunity
-                "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/3P1P2/PPP3PP/RNBQKBNR w KQkq - 0 1",
-                # Pin opportunity
-                "r1bqkb1r/ppp2ppp/2n2n2/3pp3/4P3/3P1N2/PPP2PPP/RNBQKB1R w KQkq - 0 1",
-                # Discovered attack
-                "r1bqkb1r/ppp2ppp/2n2n2/3p4/3P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 1",
-                # Mate in 1
-                "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1",
-            ]
-            self.board = chess.Board(random.choice(tactical_positions))
+        else:
+            # Curriculum levels: 1 = midgame, 2 = endgame, 3 = tactical positions (chess_rl.positions)
+            self.board = chess.Board(random.choice(curriculum_fens(self.curriculum_level)))
 
         # Update legal moves list after setting up the board
         self.legal_moves_list = list(self.board.legal_moves)
