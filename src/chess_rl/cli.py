@@ -102,6 +102,14 @@ def _cmd_stockfish(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_model(args: argparse.Namespace) -> int:
+    from chess_rl.model.network import export_release
+
+    meta = export_release(args.src, args.dst)
+    print(f"wrote {args.dst} ({meta})")
+    return 0
+
+
 def _cmd_match(args: argparse.Namespace) -> int:
     from datetime import UTC, datetime
 
@@ -252,6 +260,13 @@ def build_parser() -> argparse.ArgumentParser:
     inst.add_argument("--force", action="store_true", help="reinstall even if present")
     ssub.add_parser("path", help="print the Stockfish binary that will be used")
     p.set_defaults(func=_cmd_stockfish)
+
+    p = sub.add_parser("model", help="model files")
+    msub = p.add_subparsers(dest="model_command", required=True)
+    rel = msub.add_parser("release", help="strip a training checkpoint for publishing (no optimizer, no paths)")
+    rel.add_argument("src")
+    rel.add_argument("dst")
+    p.set_defaults(func=_cmd_model)
 
     p = sub.add_parser("match", help="play a match between two players and estimate Elo")
     p.add_argument("a", help="player spec, e.g. greedy, stockfish:elo=1500,movetime=0.1, v0:path=...")

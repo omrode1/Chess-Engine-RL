@@ -13,7 +13,7 @@ from chess_rl.model.network import (
     NetConfig,
     count_parameters,
     expected_score,
-    export_torchscript,
+    export_release,
     load_checkpoint,
     masked_log_softmax,
     prepare_input,
@@ -61,7 +61,7 @@ def test_expected_score():
     assert expected_score(torch.tensor([[0.0, 50.0, 0.0]])).item() == pytest.approx(0.5)
 
 
-def test_checkpoint_round_trip_and_torchscript(tmp_path):
+def test_checkpoint_round_trip(tmp_path):
     net = ChessNet(SMALL).eval()
     save_checkpoint(tmp_path / "m.pt", net, step=7)
     loaded, meta = load_checkpoint(tmp_path / "m.pt")
@@ -70,10 +70,28 @@ def test_checkpoint_round_trip_and_torchscript(tmp_path):
         for a, b in zip(net(x), loaded(x), strict=True):
             torch.testing.assert_close(a, b)
     assert meta == {"step": 7} and loaded.config == SMALL
-    export_torchscript(net, tmp_path / "m.ts")
-    scripted = torch.jit.load(str(tmp_path / "m.ts"))
+
+
+def test_release_export_drops_local_paths_and_optimizer(tmp_path):
+    secret_dir = tmp_path / "private-data-dir"
+    train_ckpt = tmp_path / "latest.pt"
+    net = ChessNet(SMALL).eval()
+    save_checkpoint(
+        train_ckpt,
+        net,
+        train_state={"step": 12, "positions_seen": 1200, "best_val": 2.5, "shard": 3},
+        train_config={"data_dir": str(secret_dir), "out_dir": str(tmp_path)},
+        optimizer={"state": {}, "param_groups": []},
+    )
+    assert str(secret_dir).encode() in train_ckpt.read_bytes()
+    meta = export_release(train_ckpt, tmp_path / "release.pt")
+    raw = (tmp_path / "release.pt").read_bytes()
+    assert str(tmp_path).encode() not in raw and b"/home/" not in raw and b"optimizer" not in raw
+    assert meta == {"step": 12, "positions_seen": 1200, "best_val": 2.5}
+    loaded, _ = load_checkpoint(tmp_path / "release.pt")
+    x = torch.randn(2, NUM_PLANES, 8, 8)
     with torch.no_grad():
-        torch.testing.assert_close(scripted(x)[0], net(x)[0])
+        torch.testing.assert_close(loaded(x)[0], net(x)[0])
 
 
 def test_net_player_plays_legal_games(tmp_path):
@@ -112,3 +130,11 @@ def test_cpu_net_player_limits_threads():
         assert torch.get_num_threads() == 2
     finally:
         torch.set_num_threads(before)
+
+
+def test_cli_model_release(tmp_path):
+    from chess_rl.cli import main
+
+    save_checkpoint(tmp_path / "a.pt", ChessNet(SMALL), train_state={"step": 3}, train_config={"data_dir": "/x"})
+    assert main(["model", "release", str(tmp_path / "a.pt"), str(tmp_path / "b.pt")]) == 0
+    assert load_checkpoint(tmp_path / "b.pt")[1] == {"step": 3}
