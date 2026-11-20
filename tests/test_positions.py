@@ -1,9 +1,6 @@
-import random
-
 import chess
 import pytest
 
-from baseline.chess_environment import ChessEnvWithOpeningBook
 from chess_rl.positions import CURRICULUM, LEVEL_NAMES, fens
 
 
@@ -41,17 +38,3 @@ def _after_each_move(board):
 def test_relabelled_position_really_has_no_mate_in_one():
     board = CURRICULUM[3][3].board()
     assert not any(board.is_checkmate() for _ in _after_each_move(board))
-
-
-@pytest.mark.parametrize("level", [1, 2, 3])
-def test_baseline_env_draws_the_same_positions_as_before(level):
-    """Same seed -> same start positions as the 2025 inline lists (same order, same RNG use)."""
-    random.seed(123)
-    expected = [random.choice(fens(level)) for _ in range(20)]
-    random.seed(123)
-    env = ChessEnvWithOpeningBook(use_opening_book=False, curriculum_level=level)  # __init__ draws once
-    got = [env.board.fen()]
-    for _ in range(19):
-        env.reset()
-        got.append(env.board.fen())
-    assert got == expected

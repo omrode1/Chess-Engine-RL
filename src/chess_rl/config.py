@@ -17,31 +17,6 @@ import yaml
 
 
 @dataclasses.dataclass(frozen=True)
-class BaselineTrainConfig:
-    """v0 DQN curriculum training (baseline/train_tactical_agent.py)."""
-
-    timesteps: int = 3_000_000
-    num_envs: int = 8
-    model_dir: str = "runs/baseline/models"
-    log_dir: str = "runs/baseline/logs"
-    use_opening_book: bool = True
-    use_curriculum: bool = True
-    seed: int | None = 0
-
-
-@dataclasses.dataclass(frozen=True)
-class BaselineEvalConfig:
-    """v0 model vs uniformly random player (baseline/eval_vs_random.py)."""
-
-    model: str = "runs/baseline/models/chess_tactical_final"
-    games: int = 100
-    max_plies: int = 300
-    seed: int = 0
-    pgn_dir: str | None = None
-    json_out: str | None = None
-
-
-@dataclasses.dataclass(frozen=True)
 class DataBuildConfig:
     """Lichess shard build (chess_rl.data.lichess). One directory per dataset under out_root/name."""
 

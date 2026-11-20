@@ -8,14 +8,8 @@ authors = [{ name = "Om Rode" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "chess>=1.11,<2",
-    "numpy>=1.26,<2",            # gym 0.23 does not support NumPy 2; lifted after the gymnasium migration
-    "gym==0.23.1",               # legacy v0 pipeline only; replaced by gymnasium
-    "shimmy>=2.0,<3",            # lets SB3 2.x wrap old-gym environments
-    "stable-baselines3>=2.5,<3",
+    "numpy>=2",
     "torch==2.14.1",
-    "matplotlib>=3.8",
-    "pandas>=2.2",
-    "tensorboard>=2.17",
     "pyyaml>=6",
     "zstandard>=0.23",
 ]
@@ -28,8 +22,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# chess_rl is the product. baseline/ holds the frozen v0 code, removed in M5 (#27).
-packages = ["src/chess_rl", "baseline"]
+packages = ["src/chess_rl"]
 
 [project.optional-dependencies]
 # Pick exactly one: `uv sync --extra cu130` (RTX 3050 laptop) or `uv sync --extra cpu` (CI, no GPU).
@@ -56,7 +49,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["chess_rl", "baseline", "tests"]
+known-first-party = ["chess_rl", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

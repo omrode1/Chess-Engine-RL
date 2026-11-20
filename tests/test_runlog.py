@@ -3,16 +3,16 @@ import socket
 
 import pytest
 
-from chess_rl.config import BaselineEvalConfig
+from chess_rl.config import DataBuildConfig
 from chess_rl.runlog import read_runs, track_run
 
 
 def test_successful_run_is_recorded(_runs_file):
-    with track_run("unit", BaselineEvalConfig(games=3), seed=5) as run:
+    with track_run("unit", DataBuildConfig(workers=3), seed=5) as run:
         run.outputs["score"] = 0.5
     (rec,) = read_runs()
     assert rec["kind"] == "unit" and rec["status"] == "ok" and rec["seed"] == 5
-    assert rec["config"]["games"] == 3 and rec["outputs"] == {"score": 0.5}
+    assert rec["config"]["workers"] == 3 and rec["outputs"] == {"score": 0.5}
     assert rec["gpu_hours"] == 0.0 and rec["wall_seconds"] >= 0
     assert rec["git"]["sha"] and len(rec["git"]["sha"]) == 40
     assert {"cpu_count", "ram_gb", "gpu"} <= rec["hardware"].keys()

@@ -3,7 +3,7 @@
 The M8 headline experiment compares how much compute different engines need, so every training and
 evaluation run records what it cost and exactly what produced it:
 
-    with track_run("baseline-train", config, seed=config.seed) as run:
+    with track_run("train-sl", config, seed=config.seed) as run:
         model = train(...)
         run.outputs["final_model"] = path
 
