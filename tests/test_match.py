@@ -3,7 +3,6 @@ import math
 import random
 
 import chess
-import numpy as np
 import pytest
 
 from chess_rl.cli import main
@@ -68,7 +67,7 @@ def test_games_come_in_colour_swapped_pairs():
 def test_parse_and_build_specs():
     assert parse_spec("stockfish:elo=1500, movetime=0.1") == ("stockfish", {"elo": "1500", "movetime": "0.1"})
     assert make_player("random").name == "random" and make_player("greedy", name="g").name == "g"
-    assert display_name("v0:path=runs/v0.1.0/models/chess_tactical_final") == "v0:path=chess_tactical_final"
+    assert display_name("net:path=runs/m4/m4-final.pt") == "net:path=m4-final.pt"
     for bad in ("nope", "random:x=1", "stockfish:color=red", "stockfish:elo"):
         with pytest.raises(ValueError):
             make_player(bad)
@@ -110,26 +109,6 @@ def test_cli_match_records_run_and_elo(tmp_path, capsys):
     (rec,) = read_runs()
     assert rec["kind"] == "match" and rec["outputs"]["games"] == 4
     assert len(list(csv.DictReader(elo_csv_path().open()))) == 1
-
-
-# --- v0 as a player ----------------------------------------------------------
-
-
-def test_v0_player_matches_v0_observation_and_plays_legal(tmp_path):
-    from baseline.chess_environment import ChessEnvWithOpeningBook
-    from baseline.player import v0_tensor
-    from tests.test_board_encoding import random_positions
-    from tests.test_training_smoke import _model
-
-    env = ChessEnvWithOpeningBook(use_opening_book=False)
-    for board in random_positions(50, seed=4):
-        env.board = board
-        np.testing.assert_array_equal(v0_tensor(board), env.board_to_tensor())
-
-    _model().save(tmp_path / "v0")
-    player = make_player(f"v0:path={tmp_path / 'v0'}")
-    board = chess.Board()
-    assert player.choose(board) in board.legal_moves
 
 
 # --- robustness (regression: matches vs Stockfish deadlocked at worker exit) --

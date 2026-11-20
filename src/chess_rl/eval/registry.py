@@ -3,7 +3,6 @@
     random                          uniformly random legal moves
     greedy                          MaterialGreedyPlayer
     stockfish:elo=1500,movetime=0.1 StockfishPlayer (keys: elo, skill, movetime, nodes, threads, hash_mb)
-    v0:path=runs/v0.1.0/models/chess_tactical_final   the frozen v0 DQN baseline
     net:path=runs/m4/best.pt[,temperature=0,device=auto]   raw policy network, no search (M4)
     mcts:path=runs/m4/m4-final.pt,nodes=800 (or movetime=1.0)  network + tree search (M5)
 
@@ -42,14 +41,6 @@ def _stockfish(params: dict[str, str], seed: int | None, name: str | None) -> Pl
     if "movetime" in kwargs:
         kwargs["movetime"] = float(kwargs["movetime"])
     return StockfishPlayer(name=name, **kwargs)  # type: ignore[arg-type]
-
-
-def _v0(params: dict[str, str], seed: int | None, name: str | None) -> Player:
-    from baseline.player import V0Player
-
-    if "path" not in params:
-        raise ValueError("v0 player needs path=<model zip>")
-    return V0Player(params["path"], name=name or "v0")
 
 
 def _net(params: dict[str, str], seed: int | None, name: str | None) -> Player:
@@ -100,7 +91,6 @@ _BUILDERS: dict[str, Callable[[dict[str, str], int | None, str | None], Player]]
     "random": lambda p, seed, name: RandomPlayer(seed=seed, name=name or "random"),
     "greedy": lambda p, seed, name: MaterialGreedyPlayer(seed=seed, name=name or "greedy"),
     "stockfish": _stockfish,
-    "v0": _v0,
     "net": _net,
     "mcts": _mcts,
 }

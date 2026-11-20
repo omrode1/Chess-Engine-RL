@@ -33,13 +33,9 @@ uv run chess-rl info                # versions, hardware, device, Stockfish
 
 ## Usage
 
-```bash
-# v0 DQN baseline (frozen for comparison)
-uv run chess-rl baseline train --config configs/baseline.yaml [--set timesteps=50000]
-uv run chess-rl baseline eval-random --model runs/baseline/models/chess_tactical_final --games 100
-```
+Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours.
 
-Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours. New subcommands arrive with each milestone: data, train, match, uci, play.
+The v0 DQN pipeline was removed in M5 (#27). Its code and model live on in git history and release [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0); its results stay in the tables below.
 
 ## Train the network (M4)
 
@@ -57,7 +53,7 @@ The data is streamed from the [Lichess open database](https://database.lichess.o
 uv run chess-rl match greedy "stockfish:elo=1500,movetime=0.1" --games 100 --workers 8
 ```
 
-Games come in colour-swapped pairs from opening-book starts and run in parallel. Each match prints one line per game, records Elo with a 95% confidence interval in [`results/elo.csv`](results/elo.csv), and saves every game as PGN. Player specs: `random`, `greedy`, `stockfish:elo=…,movetime=…`, `v0:path=…`.
+Games come in colour-swapped pairs from opening-book starts and run in parallel. Each match prints one line per game, records Elo with a 95% confidence interval in [`results/elo.csv`](results/elo.csv), and saves every game as PGN. Player specs: `random`, `greedy`, `stockfish:elo=…,movetime=…`, `net:path=…`, `mcts:path=…`.
 
 Reference ladder (100 games each; Elo of the first player relative to the second):
 
@@ -115,7 +111,6 @@ To add it to Cute Chess, Arena, or En Croissant, use **command** `<repo>/.venv/b
 ```
 src/chess_rl/      the engine package: board/move encoding, opening book, curriculum positions,
                    config, run logging, CLI (model, search, ... to come)
-baseline/          frozen v0 DQN pipeline (removed in M5)
 configs/           YAML run configs
 results/           tracked run records and evaluation results
 docs/              post-mortem, reports
@@ -137,4 +132,4 @@ All work goes through issue → branch → PR → CI. `main` is protected.
 
 ## Acknowledgments
 
-[python-chess](https://python-chess.readthedocs.io/), [PyTorch](https://pytorch.org/), [Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (v0 baseline), and the [Lichess open database](https://database.lichess.org/).
+[python-chess](https://python-chess.readthedocs.io/), [PyTorch](https://pytorch.org/), [Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (v0 baseline, until v0.2.0), and the [Lichess open database](https://database.lichess.org/).

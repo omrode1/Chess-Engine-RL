@@ -1,9 +1,0 @@
-# v0 DQN baseline: the settings used for release v0.1.0.
-# Usage: uv run chess-rl baseline train --config configs/baseline.yaml [--set key=value ...]
-timesteps: 300_000
-num_envs: 8
-model_dir: runs/baseline/models
-log_dir: runs/baseline/logs
-use_opening_book: true
-use_curriculum: true
-seed: 0
