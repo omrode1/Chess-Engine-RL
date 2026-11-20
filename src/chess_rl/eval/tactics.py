@@ -2,7 +2,9 @@
 
 Suites are EPD files in `chess_rl/eval/suites/` (provenance and licenses in NOTICE.md):
 
-    wac   Win At Chess, 300 positions with published solutions (bm), one with an avoid move (am)
+    wac    Win At Chess, 300 positions with published solutions (bm), one with an avoid move (am)
+    mate1  150 mate-in-1 puzzles from the Lichess puzzle database (CC0); bm = every mating move
+    mate2  150 mate-in-2 puzzles (no mate in 1 exists); bm = every first move that forces mate in 2
 
 The level-3 "tactical" curriculum positions are deliberately not a suite: Stockfish 19 at depth 24 finds
 no tactic in any of them (see chess_rl.positions).
@@ -29,7 +31,7 @@ import chess
 from chess_rl.eval.players import Player
 from chess_rl.system import REPO_ROOT, git_info
 
-SUITES = ("wac",)
+SUITES = ("wac", "mate1", "mate2")
 WAC_SHA256 = "9bfb7b42cf5bbc7f3d60ff767ca3be460e0ae4d9110ef9a71ddf0bd7071d4d46"
 TACTICS_CSV = REPO_ROOT / "results" / "tactics.csv"
 

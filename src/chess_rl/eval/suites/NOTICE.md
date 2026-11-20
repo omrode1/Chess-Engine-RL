@@ -27,3 +27,14 @@ EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+## mate1.epd, mate2.epd: mate in 1 and mate in 2 (150 positions each)
+
+Positions from the Lichess puzzle database (https://database.lichess.org/#puzzles), released under
+**CC0** (public domain). Built by `scripts/make_mate_suites.py` from the first 150 puzzles (in file order,
+as downloaded on 2026-11-20) tagged `mateIn1` / `mateIn2` with at least 1,000 plays. The solution sets
+(`bm`) were computed by exhaustive search, not copied from the puzzles; `tests/test_tactics.py` re-checks
+them.
+
+- `mate1.epd` SHA-256: `b633123a9a38221cec5946a59c46cda99d9ce9613cb98575810ac74271f1dc25`
+- `mate2.epd` SHA-256: `e065f9a0e3edba789e91ec18d822c6a38e7563adedb42c770816de837d815ab0`

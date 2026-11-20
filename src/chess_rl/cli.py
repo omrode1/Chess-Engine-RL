@@ -164,7 +164,7 @@ def _cmd_tactics(args: argparse.Namespace) -> int:
                     print(f"[{done}/{total}] solved {solved}", file=sys.stderr, flush=True)
 
             conf = {"player": args.player, "suite": suite, "seed": args.seed}
-            with track_run("tactics", conf, seed=args.seed, device="cpu") as run:
+            with track_run("tactics", conf, seed=args.seed, device=str(getattr(player, "device", "cpu"))) as run:
                 result = tactics.run_suite(player, suite, progress=progress)
                 run.outputs.update(solved=len(result.solved), total=result.total, failed=result.failed)
             print(result)
@@ -271,11 +271,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=None)
     p.set_defaults(func=_cmd_uci)
 
-    p = sub.add_parser("tactics", help="tactics test suites (Win At Chess)")
+    p = sub.add_parser("tactics", help="tactics test suites (Win At Chess, mate in 1/2)")
     tsub = p.add_subparsers(dest="tactics_command", required=True)
     run = tsub.add_parser("run", help="score a player on a suite")
     run.add_argument("--player", required=True, help="player spec")
-    run.add_argument("--suite", default="all", choices=["wac", "all"])
+    run.add_argument("--suite", default="all", choices=["wac", "mate1", "mate2", "all"])
     run.add_argument("--seed", type=int, default=0)
     run.add_argument("--no-record", action="store_true", help="do not append to results/tactics.csv")
     p.set_defaults(func=_cmd_tactics)
