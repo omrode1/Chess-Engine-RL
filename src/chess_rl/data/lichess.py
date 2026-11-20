@@ -191,22 +191,17 @@ def _white_cp(node: chess.pgn.ChildNode) -> int | None:
     return None if score is None else score.white().score(mate_score=10_000)
 
 
-def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
-    """All positions of one game as column arrays, or None if the game can't be replayed."""
-    game = chess.pgn.read_game(io.StringIO(pgn_text))
-    if game is None or game.errors:
-        return None
-    h = game.headers
-    result = {"1-0": 1, "0-1": -1, "1/2-1/2": 0}[h["Result"]]
-    elos = {chess.WHITE: int(h["WhiteElo"]), chess.BLACK: int(h["BlackElo"])}
-    base, inc = (int(x) for x in h["TimeControl"].split("+"))
-    rows: dict[str, list] = {k: [] for k in FIELDS}
+def iter_positions(game: chess.pgn.Game) -> Iterator[tuple[chess.Board, chess.Move, int, int]]:
+    """(board before the move, move, mover's clock in seconds or -1, wp_loss or -1) for each mainline move.
+
+    The board is mutated after each yield: copy it if you keep it.
+    """
+    base = int(game.headers.get("TimeControl", "0+0").split("+")[0] or 0)
     board = game.board()
     nodes = list(game.mainline())
     has_evals = any(n.eval() is not None for n in nodes)
     before_cp: int | None = START_CP  # White's view
     for node in nodes:
-        move = node.move
         # the mover's clock now = the [%clk] after their previous move, two plies back
         if board.ply() < 2:
             clock: float | None = float(base)
@@ -221,8 +216,21 @@ def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
             drop = win_percent(sign * before_cp) - win_percent(sign * after_cp)
             wp_loss = int(round(min(max(drop, 0.0), 100.0)))
         before_cp = after_cp
-        rows["clock"].append(-1 if clock is None else min(int(clock), 32767))
-        rows["wp_loss"].append(wp_loss)
+        yield board, node.move, -1 if clock is None else min(int(clock), 32767), wp_loss
+        board.push(node.move)
+
+
+def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
+    """All positions of one game as column arrays, or None if the game can't be replayed."""
+    game = chess.pgn.read_game(io.StringIO(pgn_text))
+    if game is None or game.errors:
+        return None
+    h = game.headers
+    result = {"1-0": 1, "0-1": -1, "1/2-1/2": 0}[h["Result"]]
+    elos = {chess.WHITE: int(h["WhiteElo"]), chess.BLACK: int(h["BlackElo"])}
+    base, inc = (int(x) for x in h["TimeControl"].split("+"))
+    rows: dict[str, list] = {k: [] for k in FIELDS}
+    for board, move, clock, wp_loss in iter_positions(game):
         bb, flags, half = compact_board(board)
         rows["bitboards"].append(bb)
         rows["flags"].append(flags)
@@ -234,7 +242,8 @@ def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
         rows["base_time"].append(min(base, 32767))
         rows["increment"].append(min(inc, 32767))
         rows["ply"].append(min(board.ply(), 32767))
-        board.push(move)
+        rows["clock"].append(clock)
+        rows["wp_loss"].append(wp_loss)
     if not rows["move"]:
         return None
     return {k: np.asarray(v, dtype=FIELDS[k][0]) for k, v in rows.items()}

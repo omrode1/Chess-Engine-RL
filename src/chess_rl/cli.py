@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from chess_rl import config as cfg
 from chess_rl.runlog import track_run
@@ -234,6 +235,123 @@ def _cmd_train_human(args: argparse.Namespace) -> int:
     return 0 if summary["stop_reason"] in ("completed", "max_hours") else 1
 
 
+def _cmd_human(args: argparse.Namespace) -> int:
+    from chess_rl.data import lichess
+    from chess_rl.eval import human
+
+    if args.human_command == "testset":
+        game_filter = lichess.GameFilter(
+            min_elo=args.min_elo, max_elo=args.max_elo, time_classes=tuple(args.time_classes.split(","))
+        )
+        url = args.url or lichess.month_url(args.month)
+        print(f"test set from {url} -> {args.out}", file=sys.stderr, flush=True)
+        with track_run("human-testset", vars(args) | {"func": None}, device="cpu") as run:
+            meta = human.build_test_set(
+                url,
+                args.out,
+                game_filter,
+                args.games,
+                progress=lambda g, p: print(f"  {g:,} games, {p:,} positions", file=sys.stderr, flush=True),
+            )
+            run.outputs.update(meta)
+        print(json.dumps(meta, indent=2))
+        return 0
+
+    rows = human.read_jsonl(args.test_set)
+    results = {}
+    import torch
+
+    device = torch.device(pick_device("auto"))
+    with track_run("human-eval", vars(args) | {"func": None}, device=str(device)) as run:
+        for spec in args.model or []:
+            name, _, path = spec.rpartition("=")
+            name = name or Path(path).stem
+            print(f"scoring {name} ({path}) on {len(rows):,} positions", file=sys.stderr, flush=True)
+            preds = human.predict(human.load_model(path, device), rows, device)
+            if args.save_preds:
+                human.write_jsonl(Path(args.save_preds) / f"{name}.jsonl", preds)
+            results[name] = human.summarize(rows, preds)
+        for spec in args.preds or []:
+            name, _, path = spec.rpartition("=")
+            results[name or Path(path).stem] = human.summarize(rows, human.read_jsonl(path))
+        run.outputs.update(results=results)
+    print(json.dumps(results, indent=2))
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps({"test_set": args.test_set, "results": results}, indent=2) + "\n")
+    return 0
+
+
+def _cmd_omsim(args: argparse.Namespace) -> int:
+    import torch
+
+    from chess_rl.eval import human
+    from chess_rl.eval.stockfish import find_stockfish
+    from chess_rl.model.human import load_human, save_human
+    from chess_rl.train import omsim
+
+    root = Path(args.root)
+    rows_path = root / "rows.jsonl"
+    if args.omsim_command == "label":
+        rows = omsim.player_rows(root / "games.pgn")
+        cached = {r["id"]: r["wp_loss"] for r in human.read_jsonl(rows_path)} if rows_path.exists() else {}
+        todo = [r for r in rows if cached.get(r["id"], -1) < 0]
+        print(f"{len(rows)} moves, {len(todo)} to label with Stockfish depth {args.depth}", file=sys.stderr)
+        omsim.label_blunders(todo, find_stockfish(), depth=args.depth)
+        for r in rows:
+            r["wp_loss"] = cached.get(r["id"], r["wp_loss"]) if r["wp_loss"] < 0 else r["wp_loss"]
+        human.write_jsonl(rows_path, rows)
+        labelled = [r for r in rows if r["wp_loss"] >= 0]
+        rate = sum(r["wp_loss"] >= 10 for r in labelled) / max(len(labelled), 1)
+        print(f"{len(labelled)} labelled moves, blunder rate {rate:.3f} -> {rows_path}", file=sys.stderr)
+        return 0
+
+    if not rows_path.exists():
+        print(f"{rows_path} missing: run `chess-rl omsim label` first", file=sys.stderr)
+        return 2
+    rows = human.read_jsonl(rows_path)
+    device = torch.device(pick_device("auto"))
+    conf = omsim.OmSimConfig(steps=args.steps, lr=args.lr, l2=args.l2)
+    with track_run(f"omsim-{args.omsim_command}", vars(args) | {"func": None}, device=str(device)) as run:
+        if args.omsim_command == "fit":
+            model, meta = load_human(args.model, device)
+            offset = omsim.fit_offset(model, rows, device, conf.offsets)
+            player = model.add_players(1)
+            curve = omsim.fit_player(model, rows, device, offset, conf, player)
+            save_human(args.out, model, base=str(args.model), offset=offset, player=player, moves=len(rows))
+            run.outputs.update(offset=offset, player=player, moves=len(rows), final_loss=curve[-1], out=args.out)
+            print(json.dumps(run.outputs, indent=2))
+            return 0
+        result = omsim.run_eval(
+            lambda: load_human(args.model, device)[0],
+            rows,
+            device,
+            conf,
+            args.holdout,
+            args.min_train,
+            log=lambda s: print(s, file=sys.stderr, flush=True),
+        )
+        preds = result.pop("predictions")
+        for scheme in ("split", "forward_chaining"):
+            for name, path in (p.split("=", 1) for p in args.preds or []):
+                result[scheme][name] = human.summarize(
+                    [r for r in rows if r["id"] in {p["id"] for p in preds[scheme]["om-sim"]}], human.read_jsonl(path)
+                )
+            result[scheme]["om-sim_minus_base@offset"] = omsim.paired_difference(
+                rows, preds[scheme]["om-sim"], preds[scheme]["base@offset"]
+            )
+        if args.save_preds:
+            for scheme, by_method in preds.items():
+                for name, items in by_method.items():
+                    human.write_jsonl(Path(args.save_preds) / f"{scheme}-{name.replace('@', '_')}.jsonl", items)
+        run.outputs.update(result)
+    print(json.dumps(result, indent=2))
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -327,6 +445,45 @@ def build_parser() -> argparse.ArgumentParser:
     c = csub.add_parser("report", help="game counts by time control")
     c.add_argument("--json", action="store_true")
     p.set_defaults(func=_cmd_collect)
+
+    p = sub.add_parser("human", help="human move prediction: test sets and evaluation (M6)")
+    hsub = p.add_subparsers(dest="human_command", required=True)
+    h = hsub.add_parser("testset", help="positions from N games of a Lichess month (use one no model trained on)")
+    h.add_argument("--month", default="2026-09")
+    h.add_argument("--url", help="override the source URL")
+    h.add_argument("--games", type=int, default=3000)
+    h.add_argument("--min-elo", type=int, default=600)
+    h.add_argument("--max-elo", type=int, default=1600)
+    h.add_argument("--time-classes", default="blitz,rapid,classical")
+    h.add_argument("--out", default="data/lichess/human-test-2026-09.jsonl")
+    h = hsub.add_parser("eval", help="move-match accuracy and blunder AUC on a test set")
+    h.add_argument("--test-set", required=True)
+    h.add_argument("--model", action="append", help="[name=]checkpoint (HumanNet or ChessNet), repeatable")
+    h.add_argument("--preds", action="append", help="[name=]predictions.jsonl from another model (e.g. Maia-2)")
+    h.add_argument("--save-preds", help="directory to write each model's predictions")
+    h.add_argument("--out", help="write the results JSON here (e.g. results/m6/human-model.json)")
+    p.set_defaults(func=_cmd_human)
+
+    p = sub.add_parser("omsim", help="Om-sim: few-shot model of the owner from his games (M6)")
+    p.add_argument("--root", default="data/personal/om", help="collection directory (chess-rl collect)")
+    osub = p.add_subparsers(dest="omsim_command", required=True)
+    o = osub.add_parser("label", help="Stockfish blunder labels for the owner's moves (cached in rows.jsonl)")
+    o.add_argument("--depth", type=int, default=16)
+    for name, help_ in (("eval", "held-out evaluation vs the rating-band base"), ("fit", "fit on all games")):
+        o = osub.add_parser(name, help=help_)
+        o.add_argument("--model", default="runs/human/best.pt", help="rating-band human model (#35)")
+        o.add_argument("--steps", type=int, default=300)
+        o.add_argument("--lr", type=float, default=0.05)
+        o.add_argument("--l2", type=float, default=1e-4)
+        if name == "eval":
+            o.add_argument("--holdout", type=float, default=0.2, help="most recent fraction of games held out")
+            o.add_argument("--min-train", type=int, default=5, help="forward chaining starts after this many games")
+            o.add_argument("--preds", action="append", help="name=predictions.jsonl of another model (e.g. Maia-2)")
+            o.add_argument("--save-preds", help="directory for each method's predictions")
+            o.add_argument("--out", help="results JSON (aggregates only; e.g. results/m6/omsim.json)")
+        else:
+            o.add_argument("--out", default="runs/omsim/om-sim.pt")
+    p.set_defaults(func=_cmd_omsim)
 
     p = sub.add_parser("train", help="train networks")
     trsub = p.add_subparsers(dest="train_command", required=True)
