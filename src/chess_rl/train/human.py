@@ -13,6 +13,7 @@ latest/best checkpoints, resume, a max_hours limit, and an abort after repeated 
 
 from __future__ import annotations
 
+import faulthandler
 import json
 import random
 import sys
@@ -57,6 +58,7 @@ class HumanTrainConfig:
     ckpt_every: int = 2000
     max_hours: float = 6.0
     max_nonfinite: int = 20
+    stall_seconds: float = 900.0  # watchdog: no finished step for this long -> dump all stacks and exit
     seed: int = 0
     device: str = "auto"
 
@@ -234,6 +236,7 @@ def train(
     stop_reason = "completed"
     run = {"policy": 0.0, "value": 0.0, "blunder": 0.0, "top1": 0.0, "n": 0}
     model.train()
+    faulthandler.dump_traceback_later(conf.stall_seconds, exit=True)
     while state["step"] < total_steps and stop_reason == "completed":
         rng = random.Random(conf.seed * 1000 + state["epoch"])
         order = list(range(len(train_paths)))
@@ -263,6 +266,7 @@ def train(
             scaler.step(optimizer)
             scaler.update()
             state["step"] += 1
+            faulthandler.dump_traceback_later(conf.stall_seconds, exit=True)  # re-arm the watchdog
             state["positions_seen"] += len(b["move"])
             run["policy"] += policy_loss.item()
             run["value"] += value_loss.item()
@@ -311,6 +315,7 @@ def train(
             continue
         if stop_reason != "completed":
             break
+    faulthandler.cancel_dump_traceback_later()
     _save(out / "latest.pt", model, optimizer, scaler, state, conf)
     summary = {
         "stop_reason": stop_reason,
