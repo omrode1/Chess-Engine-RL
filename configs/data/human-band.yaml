@@ -1,7 +1,10 @@
-# M6 human-model base set (#35): both players 1000-1600 (around the owner's level).
-name: human-1000-1600-2026-10
+# M6 human-model base set (#35): both players rated 600-1600 on Lichess, around the owner's level
+# (chess.com rapid/blitz 300-600 in his games; Lichess ratings run several hundred points higher).
+# Adds per-position clock and wp_loss (blunder labels from Lichess's own Stockfish annotations).
+# Usage: uv run chess-rl data build --config configs/data/human-band.yaml
+name: human-600-1600-2026-10
 month: "2026-10"
-min_elo: 1000
+min_elo: 600
 max_elo: 1600
 time_classes: blitz,rapid,classical
 target_positions: 30_000_000

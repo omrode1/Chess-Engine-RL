@@ -222,6 +222,18 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_train_human(args: argparse.Namespace) -> int:
+    from chess_rl.train.human import HumanTrainConfig, train
+
+    conf = cfg.load(HumanTrainConfig, args.config, cfg.parse_set_args(args.set or []))
+    device = pick_device(conf.device)
+    with track_run("train-human", conf, seed=conf.seed, device=device) as run:
+        summary = train(conf, resume=args.resume)
+        run.outputs.update(summary)
+    print(json.dumps(summary, indent=2, default=str))
+    return 0 if summary["stop_reason"] in ("completed", "max_hours") else 1
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -322,6 +334,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_args(sl)
     sl.add_argument("--resume", help="checkpoint to resume from (e.g. runs/m4/latest.pt)")
     sl.set_defaults(func=_cmd_train_sl)
+    hu = trsub.add_parser("human", help="human move model on a rating-band Lichess set (M6)")
+    _add_config_args(hu)
+    hu.add_argument("--resume", help="checkpoint to resume from (e.g. runs/human/latest.pt)")
+    hu.set_defaults(func=_cmd_train_human)
 
     return parser
 

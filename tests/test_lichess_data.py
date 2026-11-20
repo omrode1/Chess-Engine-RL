@@ -138,3 +138,39 @@ def test_cli_build_and_stats(tmp_path, capsys):
     assert rec["kind"] == "data-build" and rec["outputs"]["games_accepted"] == 20
     assert main(["data", "stats", str(tmp_path / "t")]) == 0
     assert '"games_accepted": 20' in capsys.readouterr().out
+
+
+SCHOLARS_MATE = """[Event "x"]
+[White "a"]
+[Black "b"]
+[Result "1-0"]
+[WhiteElo "1100"]
+[BlackElo "1050"]
+[TimeControl "300+0"]
+
+1. e4 { [%eval 0.3] [%clk 0:05:00] } 1... e5 { [%eval 0.25] [%clk 0:04:58] } 2. Bc4 { [%eval 0.1] [%clk 0:04:55] }
+2... Nc6 { [%eval 0.2] [%clk 0:04:50] } 3. Qh5 { [%eval 0.0] [%clk 0:04:40] } 3... Nf6 { [%eval #1] [%clk 0:04:30] }
+4. Qxf7# { [%clk 0:04:35] } 1-0
+"""
+
+
+def test_encode_game_clock_and_blunder_labels():
+    rows = encode_game(SCHOLARS_MATE)
+    # the mover's clock before each move: the base time for the first two plies, then their last [%clk]
+    assert rows["clock"].tolist() == [300, 300, 300, 298, 295, 290, 280]
+    # 3...Nf6?? allows mate in one: the mover drops from ~50% to 0%; the mating move loses nothing
+    assert rows["wp_loss"].tolist() == [0, 0, 1, 1, 2, 50, 0]
+
+
+def test_encode_game_without_annotations_marks_unknown():
+    plain = SCHOLARS_MATE.split("\n\n")[0] + "\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0\n"
+    rows = encode_game(plain)
+    assert rows["wp_loss"].tolist() == [-1] * 7
+    assert rows["clock"].tolist() == [300, 300] + [-1] * 5
+
+
+def test_win_percent():
+    from chess_rl.data.lichess import win_percent
+
+    assert win_percent(0) == 50
+    assert 74 < win_percent(300) < 76 and win_percent(-300) == 100 - win_percent(300)

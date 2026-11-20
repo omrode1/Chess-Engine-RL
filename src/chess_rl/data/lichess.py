@@ -12,6 +12,11 @@ For every position of an accepted game the shards store:
     elo_us, elo_them   int16   ratings of the side to move and its opponent
     base_time int16, increment int16   time control in seconds
     ply       int16    ply number of the position
+    clock     int16    seconds left on the mover's clock before the move ([%clk]); -1 if unknown
+    wp_loss   int8     win-probability points (0-100) the move lost for the mover, from Lichess's [%eval]
+                       annotations (about 1 game in 8 has them); -1 if unknown. A blunder is wp_loss >= 10.
+
+Shards built before M6 lack clock and wp_loss; readers load only the fields they need.
 
 About 2% of games (by a hash of the game URL) go to the validation split. A manifest records the
 source URL, its Last-Modified date, the bytes consumed, the filter, and the counts.
@@ -23,6 +28,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import multiprocessing as mp
 import re
 import sys
@@ -54,6 +60,8 @@ FIELDS = {
     "base_time": (np.int16, ()),
     "increment": (np.int16, ()),
     "ply": (np.int16, ()),
+    "clock": (np.int16, ()),
+    "wp_loss": (np.int8, ()),
 }
 _HEADER = re.compile(r'^\[(\w+) "(.*)"\]\s*$')
 
@@ -170,6 +178,19 @@ def is_validation(headers: dict[str, str], every: int) -> bool:
 # --------------------------------------------------------------------------------------------------
 
 
+START_CP = 20  # roughly Stockfish's evaluation of the starting position, in centipawns
+
+
+def win_percent(cp: float) -> float:
+    """Lichess's win% for the side the centipawns are counted for (lichess.org/page/accuracy)."""
+    return 50 + 50 * (2 / (1 + math.exp(-0.00368208 * cp)) - 1)
+
+
+def _white_cp(node: chess.pgn.ChildNode) -> int | None:
+    score = node.eval()
+    return None if score is None else score.white().score(mate_score=10_000)
+
+
 def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
     """All positions of one game as column arrays, or None if the game can't be replayed."""
     game = chess.pgn.read_game(io.StringIO(pgn_text))
@@ -181,7 +202,27 @@ def encode_game(pgn_text: str) -> dict[str, np.ndarray] | None:
     base, inc = (int(x) for x in h["TimeControl"].split("+"))
     rows: dict[str, list] = {k: [] for k in FIELDS}
     board = game.board()
-    for move in game.mainline_moves():
+    nodes = list(game.mainline())
+    has_evals = any(n.eval() is not None for n in nodes)
+    before_cp: int | None = START_CP  # White's view
+    for node in nodes:
+        move = node.move
+        # the mover's clock now = the [%clk] after their previous move, two plies back
+        if board.ply() < 2:
+            clock: float | None = float(base)
+        else:
+            clock = node.parent.parent.clock()  # type: ignore[union-attr]
+        after_cp = _white_cp(node)
+        if node.board().is_checkmate():
+            after_cp = 10_000 if board.turn == chess.WHITE else -10_000
+        wp_loss = -1
+        if has_evals and before_cp is not None and after_cp is not None:
+            sign = 1 if board.turn == chess.WHITE else -1
+            drop = win_percent(sign * before_cp) - win_percent(sign * after_cp)
+            wp_loss = int(round(min(max(drop, 0.0), 100.0)))
+        before_cp = after_cp
+        rows["clock"].append(-1 if clock is None else min(int(clock), 32767))
+        rows["wp_loss"].append(wp_loss)
         bb, flags, half = compact_board(board)
         rows["bitboards"].append(bb)
         rows["flags"].append(flags)

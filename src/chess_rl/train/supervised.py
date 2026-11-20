@@ -74,9 +74,9 @@ def load_manifest(data_dir: str | Path) -> dict:
     return json.loads((Path(data_dir) / "manifest.json").read_text())
 
 
-def load_shard(path: Path) -> dict[str, np.ndarray]:
+def load_shard(path: Path, fields: tuple[str, ...] = BATCH_FIELDS) -> dict[str, np.ndarray]:
     with np.load(path) as z:
-        return {k: z[k] for k in BATCH_FIELDS}
+        return {k: z[k] for k in fields}
 
 
 def shard_batches(
@@ -86,6 +86,7 @@ def shard_batches(
     start_shard: int = 0,
     prefetch: int = 2,
     drop_last: bool = True,
+    fields: tuple[str, ...] = BATCH_FIELDS,
 ) -> Iterator[tuple[int, dict[str, np.ndarray]]]:
     """Yield (shard_index, batch) over shards in the given order, shuffling within each shard.
 
@@ -99,7 +100,7 @@ def shard_batches(
             for i in range(start_shard, len(shard_paths)):
                 if stop.is_set():
                     return
-                q.put((i, load_shard(shard_paths[i])))
+                q.put((i, load_shard(shard_paths[i], fields)))
         except BaseException as e:  # surface loader errors in the training thread
             q.put(e)
             return
