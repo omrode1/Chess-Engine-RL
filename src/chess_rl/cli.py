@@ -196,6 +196,32 @@ def _cmd_train_sl(args: argparse.Namespace) -> int:
     return 0 if summary["stop_reason"] in ("completed", "max_hours") else 1
 
 
+def _cmd_collect(args: argparse.Namespace) -> int:
+    import logging
+
+    from chess_rl.data.personal import Collection, format_report
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
+    col = Collection.open(args.root)
+    if args.collect_command == "sync":
+        if not (args.chesscom or args.lichess):
+            print("nothing to sync: pass --chesscom USER and/or --lichess USER", file=sys.stderr)
+            return 2
+        if args.chesscom:
+            print(f"chess.com {args.chesscom}: {col.sync_chesscom(args.chesscom)} new games", file=sys.stderr)
+        if args.lichess:
+            print(f"lichess {args.lichess}: {col.sync_lichess(args.lichess)} new games", file=sys.stderr)
+    elif args.collect_command == "import":
+        col.aliases.update(a.lower() for a in args.alias or [])
+        if not col.aliases:
+            print("no owner names known yet: pass --alias NAME (the owner's name in the PGN)", file=sys.stderr)
+            return 2
+        print(f"imported {col.import_files(args.files)} new games", file=sys.stderr)
+    report = col.report()
+    print(json.dumps(report, indent=2) if getattr(args, "json", False) else format_report(report))
+    return 0
+
+
 def _add_config_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="YAML config file (see configs/)")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="override a config field (repeatable)")
@@ -276,6 +302,19 @@ def build_parser() -> argparse.ArgumentParser:
     st = dsub.add_parser("stats", help="show a dataset's manifest summary")
     st.add_argument("dir")
     p.set_defaults(func=_cmd_data)
+
+    p = sub.add_parser("collect", help="collect the owner's games for Om-sim (stored locally, never committed)")
+    p.add_argument("--root", default="data/personal/om", help="collection directory")
+    csub = p.add_subparsers(dest="collect_command", required=True)
+    c = csub.add_parser("sync", help="fetch new games from chess.com / Lichess (incremental)")
+    c.add_argument("--chesscom", help="chess.com username")
+    c.add_argument("--lichess", help="Lichess username")
+    c = csub.add_parser("import", help="add games from PGN files (e.g. games vs the bot saved by a GUI)")
+    c.add_argument("files", nargs="+")
+    c.add_argument("--alias", action="append", help="the owner's player name in these PGNs (repeatable)")
+    c = csub.add_parser("report", help="game counts by time control")
+    c.add_argument("--json", action="store_true")
+    p.set_defaults(func=_cmd_collect)
 
     p = sub.add_parser("train", help="train networks")
     trsub = p.add_subparsers(dest="train_command", required=True)
