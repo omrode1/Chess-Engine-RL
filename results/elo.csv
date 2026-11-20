@@ -8,3 +8,4 @@ date,player_a,player_b,games,wins,draws,losses,score,elo,elo_low,elo_high,los,op
 2026-11-19,"net:path=m4-final.pt,device=cpu","stockfish:elo=1500,movetime=0.1",100,44,18,38,0.53,20.9,-40.9,84.0,0.7462,8,400,0,935f9f79e7b3,
 2026-11-19,"net:path=m4-final.pt,device=cpu",v0:path=chess_tactical_final,100,98,2,0,0.99,798.3,645.8,inf,1.0,8,400,0,935f9f79e7b3,
 2026-11-19,"net:path=m4-final.pt,device=cpu","stockfish:elo=1700,movetime=0.1",100,26,25,49,0.385,-81.4,-144.6,-23.1,0.004,8,400,0,935f9f79e7b3,
+2026-11-20,mcts:path=m4-final.pt,"stockfish:elo=1500,movetime=0.1",100,99,1,0,0.995,919.5,729.9,inf,1.0,8,400,0,946c1f4bee91,60+1
