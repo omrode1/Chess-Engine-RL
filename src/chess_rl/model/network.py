@@ -125,10 +125,19 @@ def load_checkpoint(path: str | Path, device: str | torch.device = "cpu") -> tup
     return model, data.get("meta", {})
 
 
-def export_torchscript(model: ChessNet, path: str | Path) -> None:
-    """Traced TorchScript module for fast inference without the Python model definition."""
-    model = model.eval()
-    example = torch.zeros(1, NUM_PLANES, 8, 8, device=next(model.parameters()).device)
-    with torch.no_grad():
-        traced = torch.jit.trace(model, example)
-    traced.save(str(path))
+RELEASE_META_KEYS = ("step", "positions_seen", "best_val")
+
+
+def export_release(src: str | Path, dst: str | Path) -> dict[str, Any]:
+    """Write a checkpoint fit for publishing: weights, architecture, step, positions seen and best validation loss.
+
+    Training checkpoints also hold the optimizer state and the training config, whose data/output paths
+    may be absolute local paths. The release file loads with `load_checkpoint` like any other.
+    (This replaces a TorchScript export: torch.jit.trace is deprecated, both TorchScript and torch.export
+    files embed absolute source paths, and neither ran faster than eager at MCTS batch sizes.)
+    """
+    data = torch.load(src, map_location="cpu", weights_only=True)
+    state = data.get("meta", {}).get("train_state", {})
+    meta = {k: state[k] for k in RELEASE_META_KEYS if k in state}
+    torch.save({"config": data["config"], "state_dict": data["state_dict"], "meta": meta}, Path(dst))
+    return meta
