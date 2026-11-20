@@ -150,3 +150,30 @@ def test_omsim_cli_eval_and_fit(collection, tmp_path, monkeypatch):
         and meta["player"] == 1
         and meta["moves"] == len(read_jsonl(collection.root / "rows.jsonl"))
     )
+
+
+def test_omsim_report_cli(collection, tmp_path, monkeypatch):
+    rows = omsim.player_rows(collection.pgn_path)
+    for i, r in enumerate(rows):
+        r.update(wp_loss=40 if i % 5 == 0 else 1, best=r["move"], refutation="", mate_after=0, pv_best=[], pv_after=[])
+    write_jsonl(collection.root / "rows.jsonl", rows)
+    model = tmp_path / "om.pt"
+    net = HumanNet(TINY)
+    net.add_players(1)
+    save_human(model, net, offset=300, player=1)
+    out = tmp_path / "report.html"
+    args = [
+        "omsim",
+        "--root",
+        str(collection.root),
+        "report",
+        "--model",
+        str(model),
+        "--out",
+        str(out),
+        "--population",
+        "none",
+    ]
+    assert main(args) == 0
+    page = out.read_text()
+    assert "<svg" in page and "What Om-sim expects" in page and "positional" in page

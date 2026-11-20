@@ -295,11 +295,12 @@ def _cmd_omsim(args: argparse.Namespace) -> int:
     if args.omsim_command == "label":
         rows = omsim.player_rows(root / "games.pgn")
         cached = {r["id"]: r["wp_loss"] for r in human.read_jsonl(rows_path)} if rows_path.exists() else {}
+        cached = {} if args.relabel else cached
         todo = [r for r in rows if cached.get(r["id"], -1) < 0]
         print(f"{len(rows)} moves, {len(todo)} to label with Stockfish depth {args.depth}", file=sys.stderr)
         omsim.label_blunders(todo, find_stockfish(), depth=args.depth)
-        for r in rows:
-            r["wp_loss"] = cached.get(r["id"], r["wp_loss"]) if r["wp_loss"] < 0 else r["wp_loss"]
+        old = {r["id"]: r for r in human.read_jsonl(rows_path)} if rows_path.exists() and not args.relabel else {}
+        rows = [old.get(r["id"], r) if r["wp_loss"] < 0 else r for r in rows]
         human.write_jsonl(rows_path, rows)
         labelled = [r for r in rows if r["wp_loss"] >= 0]
         rate = sum(r["wp_loss"] >= 10 for r in labelled) / max(len(labelled), 1)
@@ -310,6 +311,24 @@ def _cmd_omsim(args: argparse.Namespace) -> int:
         print(f"{rows_path} missing: run `chess-rl omsim label` first", file=sys.stderr)
         return 2
     rows = human.read_jsonl(rows_path)
+    if args.omsim_command == "report":
+        from chess_rl.eval import weakness
+
+        risk = None
+        if args.model:
+            model, meta = load_human(args.model, torch.device("cpu"))
+            preds = omsim.predict(model, rows, torch.device("cpu"), meta.get("offset", 0), meta.get("player"))
+            risk = weakness.risk_from_predictions(preds)
+        population = None
+        if args.population and Path(args.population).exists():
+            labelled = [r["wp_loss"] for r in human.read_jsonl(args.population) if r["wp_loss"] >= 0]
+            population = sum(w >= weakness.BLUNDER for w in labelled) / max(len(labelled), 1)
+        report = weakness.build(rows, risk, population)
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(weakness.render_html(report, rows, risk, title=args.title))
+        print(weakness.markdown_summary(report))
+        print(f"report -> {args.out}", file=sys.stderr)
+        return 0
     device = torch.device(pick_device("auto"))
     conf = omsim.OmSimConfig(steps=args.steps, lr=args.lr, l2=args.l2)
     with track_run(f"omsim-{args.omsim_command}", vars(args) | {"func": None}, device=str(device)) as run:
@@ -469,6 +488,7 @@ def build_parser() -> argparse.ArgumentParser:
     osub = p.add_subparsers(dest="omsim_command", required=True)
     o = osub.add_parser("label", help="Stockfish blunder labels for the owner's moves (cached in rows.jsonl)")
     o.add_argument("--depth", type=int, default=16)
+    o.add_argument("--relabel", action="store_true", help="ignore cached labels")
     for name, help_ in (("eval", "held-out evaluation vs the rating-band base"), ("fit", "fit on all games")):
         o = osub.add_parser(name, help=help_)
         o.add_argument("--model", default="runs/human/best.pt", help="rating-band human model (#35)")
@@ -483,6 +503,15 @@ def build_parser() -> argparse.ArgumentParser:
             o.add_argument("--out", help="results JSON (aggregates only; e.g. results/m6/omsim.json)")
         else:
             o.add_argument("--out", default="runs/omsim/om-sim.pt")
+    o = osub.add_parser("report", help="weakness report (HTML) from his blunders and Om-sim's risk estimates")
+    o.add_argument("--model", help="Om-sim checkpoint from `omsim fit` (adds predicted blunder risk)")
+    o.add_argument(
+        "--population",
+        default="data/lichess/human-test-2026-09.jsonl",
+        help="human test set to quote the population blunder rate from",
+    )
+    o.add_argument("--out", default="data/personal/om/weakness-report.html")
+    o.add_argument("--title", default="Weakness report")
     p.set_defaults(func=_cmd_omsim)
 
     p = sub.add_parser("train", help="train networks")
