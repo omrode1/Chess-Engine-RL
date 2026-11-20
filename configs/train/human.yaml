@@ -1,0 +1,26 @@
+# M6 human move model (#35) on the 600-1600 Lichess band (configs/data/human-band.yaml).
+# The tower starts from the M4 network (release v0.2.0): it already knows chess; this run teaches it
+# how 600-1600 players actually move, when they blunder, and how that depends on rating and clock.
+# Usage: uv run chess-rl train human --config configs/train/human.yaml   (resume: --resume runs/human/latest.pt)
+data_dir: data/lichess/human-600-1600-2026-10
+out_dir: runs/human
+init_from: runs/m4/m4-final.pt
+blocks: 10
+filters: 128
+se: true
+cond_dim: 64
+batch_size: 1024
+lr: 0.001
+weight_decay: 0.0001
+warmup_steps: 1000
+epochs: 2.0
+value_weight: 0.5
+blunder_weight: 1.0
+grad_clip: 1.0
+log_every: 200
+val_every: 5000
+val_positions: 200_000
+ckpt_every: 2000
+max_hours: 5.0
+seed: 0
+device: auto
