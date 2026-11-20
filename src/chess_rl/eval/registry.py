@@ -72,9 +72,10 @@ def _net(params: dict[str, str], seed: int | None, name: str | None) -> Player:
 def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
     from chess_rl.search.mcts import SearchConfig
     from chess_rl.search.player import MCTSPlayer
+    from chess_rl.search.timeman import TimeManager
 
     search_keys = {"c_puct": "c_puct", "fpu": "fpu_reduction", "policy_temp": "policy_temp", "batch": "batch_size"}
-    allowed = {"path", "nodes", "movetime", "device", "threads", *search_keys}
+    allowed = {"path", "nodes", "movetime", "device", "threads", "book", "overhead", *search_keys}
     unknown = set(params) - allowed
     if unknown or "path" not in params:
         raise ValueError(f"mcts player needs path=...; allowed keys {sorted(allowed)}")
@@ -89,6 +90,9 @@ def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
         device=params.get("device", "auto"),
         name=name or "mcts",
         threads=int(params.get("threads", 1)),
+        book=params.get("book", "false").lower() in {"1", "true", "yes", "on"},
+        time_manager=TimeManager(move_overhead=float(params.get("overhead", 0.1))),
+        seed=seed,
     )
 
 

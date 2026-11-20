@@ -23,7 +23,7 @@ from pathlib import Path
 import chess
 
 from chess_rl.eval.elo import EloEstimate, estimate
-from chess_rl.eval.game import play_game
+from chess_rl.eval.game import TimeControl, play_game
 from chess_rl.eval.registry import display_name, make_player
 from chess_rl.openings import OpeningBook
 from chess_rl.system import REPO_ROOT, git_info
@@ -55,6 +55,7 @@ ELO_COLUMNS = [
     "max_plies",
     "seed",
     "git_sha",
+    "time_control",
 ]
 
 
@@ -95,8 +96,8 @@ class GameRecord:
 _WORKER: dict[str, object] = {}
 
 
-def _init_worker(spec_a: str, spec_b: str, max_plies: int) -> None:
-    _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, players={})
+def _init_worker(spec_a: str, spec_b: str, max_plies: int, time_control: TimeControl | None = None) -> None:
+    _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, time_control=time_control, players={})
     # Close engines when the worker exits. python-chess runs each engine on a non-daemon thread, and an
     # unclosed engine blocks the worker's interpreter shutdown forever (this deadlocked matches vs
     # Stockfish). multiprocessing runs these finalizers before it joins threads.
@@ -135,7 +136,14 @@ def _play(task: GameTask) -> GameRecord:
     white, black = (a, b) if task.a_is_white else (b, a)
     max_plies = _WORKER["max_plies"]
     assert isinstance(max_plies, int)
-    game = play_game(white, black, start=start, max_plies=max_plies, headers={"Round": str(task.index + 1)})
+    game = play_game(
+        white,
+        black,
+        start=start,
+        max_plies=max_plies,
+        headers={"Round": str(task.index + 1)},
+        time_control=_WORKER.get("time_control"),  # type: ignore[arg-type]
+    )
     score_a = game.score_for(chess.WHITE if task.a_is_white else chess.BLACK)
     out = io.StringIO()
     print(game.pgn(), file=out, end="\n\n")
@@ -180,15 +188,21 @@ def run_match(
     pgn_path: str | Path | None = None,
     stall_timeout: float = 300.0,
     progress: Callable[[GameRecord, int, int], None] | None = None,
+    time_control: TimeControl | None = None,
 ) -> MatchResult:
     """Play `games` games between two player specs.
 
     stall_timeout: abort with TimeoutError if no game finishes for this many seconds (a hung engine or
     worker must fail loudly, not wait forever). progress(record, done, total) is called after each game.
+    time_control: play with real clocks (players get a Clock; flagging loses). Without it, players use
+    their own fixed budgets (Stockfish always does: its movetime/nodes, so its strength stays calibrated).
+    With a clock, the stall timeout is raised to cover the longest possible game.
     """
+    if time_control is not None:
+        stall_timeout = max(stall_timeout, 2 * (time_control.base + time_control.inc * max_plies / 2) + 60)
     tasks = list(_tasks(games, opening_plies, seed))
     if workers <= 1:
-        _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, players={})
+        _WORKER.update(spec_a=spec_a, spec_b=spec_b, max_plies=max_plies, time_control=time_control, players={})
         records = []
         try:
             for t in tasks:
@@ -198,7 +212,7 @@ def run_match(
         finally:
             _close_players()
     else:
-        records = _run_parallel(tasks, spec_a, spec_b, max_plies, workers, stall_timeout, progress)
+        records = _run_parallel(tasks, spec_a, spec_b, max_plies, workers, stall_timeout, progress, time_control)
     records.sort(key=lambda r: r.index)
     wins = sum(r.score_a == 1.0 for r in records)
     draws = sum(r.score_a == 0.5 for r in records)
@@ -218,9 +232,13 @@ def _run_parallel(
     workers: int,
     stall_timeout: float,
     progress: Callable[[GameRecord, int, int], None] | None,
+    time_control: TimeControl | None = None,
 ) -> list[GameRecord]:
     pool = ProcessPoolExecutor(
-        workers, mp_context=mp.get_context("spawn"), initializer=_init_worker, initargs=(spec_a, spec_b, max_plies)
+        workers,
+        mp_context=mp.get_context("spawn"),
+        initializer=_init_worker,
+        initargs=(spec_a, spec_b, max_plies, time_control),
     )
     processes = []
     records: list[GameRecord] = []
@@ -258,7 +276,12 @@ def _run_parallel(
 
 
 def append_elo_row(
-    result: MatchResult, opening_plies: int, max_plies: int, seed: int, csv_path: Path | None = None
+    result: MatchResult,
+    opening_plies: int,
+    max_plies: int,
+    seed: int,
+    csv_path: Path | None = None,
+    time_control: TimeControl | None = None,
 ) -> None:
     csv_path = csv_path or elo_csv_path()
     est = result.estimate
@@ -279,9 +302,15 @@ def append_elo_row(
         "max_plies": max_plies,
         "seed": seed,
         "git_sha": (git_info()["sha"] or "")[:12],
+        "time_control": time_control.pgn() if time_control else "",
     }
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     new = not csv_path.exists()
+    if not new:
+        with csv_path.open(newline="") as f:
+            header = next(csv.reader(f), [])
+        if header != ELO_COLUMNS:
+            raise ValueError(f"{csv_path} has columns {header}, expected {ELO_COLUMNS}")
     with csv_path.open("a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=ELO_COLUMNS)
         if new:
