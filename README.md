@@ -2,7 +2,7 @@
 
 **A chess engine trained on a laptop GPU, built to beat one specific person: me.**
 
-> **Status (Nov 2026): being revived and redesigned.** The original 2025 DQN agent is preserved as baseline [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0). It scores **49% against a random-move player**, so it has no measurable chess skill. Why it couldn't learn: [`docs/postmortem-v0.md`](docs/postmortem-v0.md).
+> **Status (Nov 2026): M5 done.** Network + search plays far above the 2025 baseline (see [Current engine](#current-engine-m5-release-v030)); next: modelling the opponent (M6). The original 2025 DQN agent is preserved as baseline [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0). It scores **49% against a random-move player**, so it has no measurable chess skill. Why it couldn't learn: [`docs/postmortem-v0.md`](docs/postmortem-v0.md).
 
 ## The idea
 
@@ -36,6 +36,20 @@ uv run chess-rl info                # versions, hardware, device, Stockfish
 Each run appends a record to `results/runs.jsonl`: git commit, config, seed, hardware, wall-clock time, and GPU-hours.
 
 The v0 DQN pipeline was removed in M5 (#27). Its code and model live on in git history and release [v0.1.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.1.0); its results stay in the tables below.
+
+## Current engine (M5, release v0.3.0)
+
+The M4 network plus Monte Carlo tree search. With 1,600 search nodes per move (about 0.4 s on the laptop GPU) it scores
+**97.5% against Stockfish 19 @ UCI_Elo 1500 and 60% @ 2700**, and solves 48% of Win At Chess (the raw network: 16.7%).
+Full report, including what these Stockfish levels do and don't mean: [`results/m5/`](results/m5/README.md).
+
+```bash
+uv run chess-rl uci --player "mcts:path=runs/m4/m4-final.pt,book=true"   # play it in a chess GUI (uses the GUI's clock)
+uv run chess-rl watch live "mcts:path=runs/m4/m4-final.pt,nodes=1600" "stockfish:elo=2300,movetime=0.1"
+uv run chess-rl match "mcts:path=runs/m4/m4-final.pt" "stockfish:elo=1500,movetime=0.1" --tc 3+2 --games 20
+```
+
+Get `m4-final.pt` from release [v0.2.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.2.0) (the network) into `runs/m4/`.
 
 ## Train the network (M4)
 
@@ -73,10 +87,10 @@ Reference ladder (100 games each; Elo of the first player relative to the second
 | Stockfish 19 @ 1500 | 44 / 18 / 38 | +21 [−41, +84] |
 | Stockfish 19 @ 1700 | 26 / 25 / 49 | −81 [−145, −23] |
 
-Tactics: the [Win At Chess](src/chess_rl/eval/suites/NOTICE.md) suite (300 positions, one move each), recorded in [`results/tactics.csv`](results/tactics.csv):
+Tactics: the [Win At Chess](src/chess_rl/eval/suites/NOTICE.md) suite (300 positions, one move each) and mate-in-1 / mate-in-2 suites from Lichess puzzles, recorded in [`results/tactics.csv`](results/tactics.csv):
 
 ```bash
-uv run chess-rl tactics run --player greedy --suite wac
+uv run chess-rl tactics run --player greedy --suite wac   # or mate1, mate2, all
 ```
 
 | Player | WAC solved |
@@ -85,6 +99,7 @@ uv run chess-rl tactics run --player greedy --suite wac
 | greedy (one-ply material) | 41 / 300 (13.7%) |
 | v0 baseline | 8 / 300 (2.7%) |
 | M4 raw network (no search) | 50 / 300 (16.7%) |
+| **M5 network + MCTS, 1,600 nodes** | **145 / 300 (48.3%)** |
 | Stockfish 19 @ UCI_Elo 1320, 0.1 s/move | 71 / 300 (23.7%) |
 | Stockfish 19 full strength, 0.1 s/move | 266 / 300 (88.7%) |
 
@@ -104,14 +119,15 @@ Any player can run as a UCI engine:
 uv run chess-rl uci --player greedy
 ```
 
-To add it to Cute Chess, Arena, or En Croissant, use **command** `<repo>/.venv/bin/chess-rl` with **arguments** `uci --player greedy`. Strength can be changed from the GUI with the `Player` option (any player spec, e.g. `stockfish:elo=1500,movetime=0.2`). Our own engines become available as specs from M4.
+To add it to Cute Chess, Arena, or En Croissant, use **command** `<repo>/.venv/bin/chess-rl` with **arguments** `uci --player greedy`. Strength can be changed from the GUI with the `Player` option (any player spec, e.g. `stockfish:elo=1500,movetime=0.2` or `mcts:path=runs/m4/m4-final.pt`). The `mcts` engine manages its own time from the GUI's clock.
 
 ## Layout
 
 ```
 src/chess_rl/      the engine package: board/move encoding, opening book, curriculum positions,
-                   config, run logging, CLI (model, search, ... to come)
+                   network, training, MCTS search, evaluation, UCI, CLI
 configs/           YAML run configs
+scripts/           one-off data scripts (tactics suite generation)
 results/           tracked run records and evaluation results
 docs/              post-mortem, reports
 tests/             pytest suite (CI on every PR)
