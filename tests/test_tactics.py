@@ -33,6 +33,20 @@ def test_wac_parses_completely():
     assert sum(bool(p.avoid) for p in puzzles) == 1
 
 
+def test_mate_suites_are_exact():
+    """bm must be exactly the set of mating moves (mate1) or of first moves forcing mate in two (mate2)."""
+    from scripts.make_mate_suites import forces_mate_in_2, mates_in_1
+
+    mate1, mate2 = load_suite("mate1"), load_suite("mate2")
+    assert len(mate1) == len(mate2) == 150
+    assert len({p.id for p in mate1 + mate2}) == 300
+    for p in mate1:
+        assert p.best == frozenset(mates_in_1(p.board))
+    for p in mate2[:30]:  # brute force is slow-ish; the generator already checked all of them
+        assert not mates_in_1(p.board)
+        assert p.best == frozenset(m for m in p.board.legal_moves if forces_mate_in_2(p.board, m))
+
+
 def test_solution_rules():
     board = chess.Board()
     e4, d4, a3 = (chess.Move.from_uci(u) for u in ("e2e4", "d2d4", "a2a3"))
