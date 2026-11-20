@@ -90,4 +90,4 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["chess_rl.search.mcts.SearchConfig"]
+extend-immutable-calls = ["chess_rl.search.mcts.SearchConfig", "chess_rl.search.timeman.TimeManager"]

@@ -129,7 +129,10 @@ def _cmd_match(args: argparse.Namespace) -> int:
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     pgn = args.pgn or f"runs/matches/{stamp}.pgn"
-    conf = {k: getattr(args, k) for k in ("a", "b", "games", "workers", "opening_plies", "max_plies", "seed")}
+    from chess_rl.eval.game import TimeControl
+
+    tc = TimeControl.parse(args.tc) if args.tc else None
+    conf = {k: getattr(args, k) for k in ("a", "b", "games", "workers", "opening_plies", "max_plies", "seed", "tc")}
     with track_run("match", conf, seed=args.seed, device="cpu") as run:
         result = run_match(
             args.a,
@@ -142,12 +145,13 @@ def _cmd_match(args: argparse.Namespace) -> int:
             pgn_path=pgn,
             stall_timeout=args.stall_timeout,
             progress=progress,
+            time_control=tc,
         )
         run.outputs.update(result.estimate.as_dict(), pgn=str(result.pgn_path), terminations=result.terminations())
     print(f"{result.player_a} vs {result.player_b}: {result.estimate}")
     print(f"terminations: {result.terminations()}  games: {result.pgn_path}")
     if not args.no_record:
-        append_elo_row(result, args.opening_plies, args.max_plies, args.seed)
+        append_elo_row(result, args.opening_plies, args.max_plies, args.seed, time_control=tc)
     return 0
 
 
@@ -279,6 +283,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pgn", help="where to write the games (default runs/matches/<timestamp>.pgn)")
     p.add_argument("--no-record", action="store_true", help="do not append to results/elo.csv")
     p.add_argument("--stall-timeout", type=float, default=300.0, help="abort if no game finishes for this long (s)")
+    p.add_argument("--tc", help="real clocks, minutes+increment seconds, e.g. 10+5 (default: per-move budgets)")
     p.set_defaults(func=_cmd_match)
 
     p = sub.add_parser("uci", help="run a player as a UCI engine (for chess GUIs and lichess-bot)")
