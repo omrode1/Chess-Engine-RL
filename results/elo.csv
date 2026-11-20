@@ -9,3 +9,9 @@ date,player_a,player_b,games,wins,draws,losses,score,elo,elo_low,elo_high,los,op
 2026-11-19,"net:path=m4-final.pt,device=cpu",v0:path=chess_tactical_final,100,98,2,0,0.99,798.3,645.8,inf,1.0,8,400,0,935f9f79e7b3,
 2026-11-19,"net:path=m4-final.pt,device=cpu","stockfish:elo=1700,movetime=0.1",100,26,25,49,0.385,-81.4,-144.6,-23.1,0.004,8,400,0,935f9f79e7b3,
 2026-11-20,mcts:path=m4-final.pt,"stockfish:elo=1500,movetime=0.1",100,99,1,0,0.995,919.5,729.9,inf,1.0,8,400,0,946c1f4bee91,60+1
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=1500,movetime=0.1",100,97,1,2,0.975,636.4,497.4,inf,1.0,8,400,0,38a257528203,
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=1900,movetime=0.1",100,98,2,0,0.99,798.3,645.8,inf,1.0,8,400,0,38a257528203,
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=2300,movetime=0.1",100,84,12,4,0.9,381.7,304.1,504.4,1.0,8,400,0,38a257528203,
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=2700,movetime=0.1",100,34,52,14,0.6,70.4,24.4,119.1,0.9981,8,400,0,38a257528203,
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=3190,movetime=0.1",100,0,34,66,0.17,-275.5,-340.3,-223.5,0.0,8,400,0,38a257528203,
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600","stockfish:elo=2700,movetime=0.4",100,38,41,21,0.585,59.6,8.1,114.0,0.9866,8,400,0,38a257528203,

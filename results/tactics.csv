@@ -5,3 +5,8 @@ date,player,suite,solved,total,score,git_sha
 2026-11-19,"stockfish:elo=1320,movetime=0.1",wac,71,300,0.2367,9ec42aba6d6a
 2026-11-19,stockfish:movetime=0.1,wac,266,300,0.8867,9ec42aba6d6a
 2026-11-19,"net:path=m4-final.pt,device=cpu",wac,50,300,0.1667,935f9f79e7b3
+2026-11-20,net:path=m4-final.pt,mate1,109,150,0.7267,38a257528203
+2026-11-20,net:path=m4-final.pt,mate2,79,150,0.5267,38a257528203
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600",wac,145,300,0.4833,38a257528203
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600",mate1,150,150,1.0,38a257528203
+2026-11-20,"mcts:path=m4-final.pt,nodes=1600",mate2,133,150,0.8867,38a257528203
