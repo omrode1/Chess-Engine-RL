@@ -483,7 +483,7 @@ def build_parser() -> argparse.ArgumentParser:
     h.add_argument("--out", help="write the results JSON here (e.g. results/m6/human-model.json)")
     p.set_defaults(func=_cmd_human)
 
-    p = sub.add_parser("omsim", help="Om-sim: few-shot model of the owner from his games (M6)")
+    p = sub.add_parser("omsim", help="Om-sim: few-shot model of the owner from their games (M6)")
     p.add_argument("--root", default="data/personal/om", help="collection directory (chess-rl collect)")
     osub = p.add_subparsers(dest="omsim_command", required=True)
     o = osub.add_parser("label", help="Stockfish blunder labels for the owner's moves (cached in rows.jsonl)")
@@ -503,7 +503,7 @@ def build_parser() -> argparse.ArgumentParser:
             o.add_argument("--out", help="results JSON (aggregates only; e.g. results/m6/omsim.json)")
         else:
             o.add_argument("--out", default="runs/omsim/om-sim.pt")
-    o = osub.add_parser("report", help="weakness report (HTML) from his blunders and Om-sim's risk estimates")
+    o = osub.add_parser("report", help="weakness report (HTML) from the owner's blunders and Om-sim's risk estimates")
     o.add_argument("--model", help="Om-sim checkpoint from `omsim fit` (adds predicted blunder risk)")
     o.add_argument(
         "--population",
