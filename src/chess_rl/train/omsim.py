@@ -90,20 +90,46 @@ def player_rows(pgn_path: str | Path, default_elo: int = 0) -> list[dict]:
 
 
 def label_blunders(rows: list[dict], engine_path: str | Path, depth: int = 16) -> None:
-    """Fill wp_loss for each row: the win-% the played move lost, Stockfish at a fixed depth."""
+    """Fill each row's Stockfish labels at a fixed depth:
+
+    wp_loss      win-% points the played move lost (0-100)
+    cp_before    evaluation before the move, mover's view (centipawns; mate = +-10000)
+    best         Stockfish's move
+    refutation   the opponent's best reply to the played move ("" if the game ended)
+    mate_after   moves until the opponent mates after the played move (0 if none)
+    pv_best      Stockfish's line from the position (up to 8 plies, UCI)
+    pv_after     Stockfish's line after the played move, starting with the refutation
+    """
     limit = chess.engine.Limit(depth=depth)
     with chess.engine.SimpleEngine.popen_uci(str(engine_path)) as engine:
         for r in rows:
             board = chess.Board(r["fen"])
-            before = engine.analyse(board, limit)["score"].pov(board.turn).score(mate_score=10_000)
+            info = engine.analyse(board, limit)
+            before = info["score"].pov(board.turn).score(mate_score=10_000)
+            pv_best = [m.uci() for m in info.get("pv", [])[:8]]
+            best = pv_best[0] if pv_best else ""
             board.push_uci(r["move"])
+            refutation, mate_after, pv_after = "", 0, []
             if board.is_checkmate():
                 after = 10_000
             elif board.is_game_over():
                 after = 0
             else:
-                after = -engine.analyse(board, limit)["score"].pov(board.turn).score(mate_score=10_000)
+                info = engine.analyse(board, limit)
+                score = info["score"].pov(board.turn)
+                after = -score.score(mate_score=10_000)
+                pv_after = [m.uci() for m in info.get("pv", [])[:8]]
+                refutation = pv_after[0] if pv_after else ""
+                mate_after = score.mate() if (score.mate() or 0) > 0 else 0
             r["wp_loss"] = int(round(min(max(win_percent(before) - win_percent(after), 0.0), 100.0)))
+            r.update(
+                cp_before=before,
+                best=best,
+                refutation=refutation,
+                mate_after=mate_after,
+                pv_best=pv_best,
+                pv_after=pv_after,
+            )
 
 
 @dataclass
