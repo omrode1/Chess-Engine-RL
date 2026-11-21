@@ -35,20 +35,32 @@ class HumanPolicy:
         opp_elo: int | None = None,
         player: int | None = None,
         device: str | torch.device = "cpu",
+        temperature: float = 1.0,
     ):
+        if temperature <= 0:
+            raise ValueError("HumanPolicy temperature must be > 0")
+        self.temperature = temperature
         self.model = model.eval()
         self.device = torch.device(device)
         self.elo, self.opp_elo, self.player = elo, opp_elo if opp_elo is not None else elo, player
         self.calls = self.positions = 0
 
     @classmethod
-    def load(cls, path: str, elo: int = 1200, opp_elo: int | None = None, player: int | None = None, device="auto"):
+    def load(
+        cls,
+        path: str,
+        elo: int = 1200,
+        opp_elo: int | None = None,
+        player: int | None = None,
+        device="auto",
+        temperature: float = 1.0,
+    ):
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         model, meta = load_human(path, device)
         if player is None:
             player = meta.get("player")  # Om-sim checkpoints name their player row
-        return cls(model, elo, opp_elo, player, device)
+        return cls(model, elo, opp_elo, player, device, temperature)
 
     @torch.inference_mode()
     def __call__(self, planes: np.ndarray, clocks: np.ndarray | None = None) -> np.ndarray:
@@ -63,7 +75,7 @@ class HumanPolicy:
         who = None if self.player is None else torch.full((n,), self.player, device=self.device)
         with torch.autocast(self.device.type, dtype=torch.float16, enabled=self.device.type == "cuda"):
             logits, _, _ = self.model(x, elo, them, clock, who)
-        return logits.float().cpu().numpy()
+        return (logits.float() / self.temperature).cpu().numpy()
 
 
 class HumanPlayer:

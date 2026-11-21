@@ -230,6 +230,10 @@ def test_exploitative_player_from_spec(tmp_path):
         make_player(f"mcts:path={net},opponent={human}")
     with pytest.raises(ValueError, match="opponent"):
         make_player(f"mcts:path={net},opp_elo=1200")
+    with pytest.raises(ValueError, match="opponent"):
+        make_player(f"mcts:path={net},opp_temp=0.5")
+    sharp = make_player(f"mcts:path={net},nodes=8,device=cpu,opponent={human},opp_temp=0.25,caution=0.5")
+    assert sharp.opponent.temperature == 0.25
     sim = make_player(f"human:path={human},elo=900,temperature=0.5,device=cpu", seed=1)
     assert sim.choose(chess.Board()) in chess.Board().legal_moves
 
@@ -260,3 +264,9 @@ def test_takes_a_saving_repetition():
         board.push_uci(uci)
     result = MCTS(MaterialEval()).search(board, nodes=200)
     assert result.move == chess.Move.from_uci("h8g8") and result.q == 0.0
+
+
+@pytest.mark.parametrize("nodes", [1, 2, 5, 31, 33])
+def test_node_budget_is_exact_below_the_batch_size(nodes):
+    result = MCTS(MaterialEval(), SearchConfig(batch_size=32)).search(chess.Board(), nodes=nodes)
+    assert result.nodes == nodes

@@ -241,7 +241,8 @@ class MCTS:
         if len(moves) == 1:  # forced: no point searching
             return self._result(root, done, time.perf_counter() - start, reused)
         while True:
-            done += self._step(root, work)
+            limit = self.config.batch_size if nodes is None else max(1, min(self.config.batch_size, nodes - done))
+            done += self._step(root, work, limit)
             elapsed = time.perf_counter() - start
             if root.proven is not None:  # solved: more search cannot change the result
                 break
@@ -257,14 +258,14 @@ class MCTS:
     def _indices(moves: list[chess.Move], turn: chess.Color) -> np.ndarray:
         return np.fromiter((move_to_index(m, turn) for m in moves), dtype=np.int64, count=len(moves))
 
-    def _step(self, root: Node, board: chess.Board) -> int:
-        """Collect up to batch_size leaves, evaluate them in one call, back up. Returns walks completed."""
+    def _step(self, root: Node, board: chess.Board, limit: int) -> int:
+        """Collect up to `limit` (<= batch_size) leaves, evaluate them in one call, back up. Returns walks completed."""
         cfg = self.config
         batch: list[tuple[Node, list[tuple[Node, int]], list[chess.Move], np.ndarray]] = []
         planes: list[np.ndarray] = []
         human_rows: list[int] = []  # batch entries where the opponent is to move
         completed = collisions = 0
-        while len(batch) + completed < cfg.batch_size and collisions <= cfg.max_collisions:
+        while len(batch) + completed < limit and collisions <= cfg.max_collisions:
             node, path, kinds = root, [], []
             while node.moves is not None and node.proven is None:
                 i, kind = self._select(node, root=node is root)

@@ -83,6 +83,7 @@ def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
         "overhead",
         "opponent",
         "opp_elo",
+        "opp_temp",
         *search_keys,
     }
     unknown = set(params) - allowed
@@ -98,9 +99,15 @@ def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
         if "caution" not in params:
             raise ValueError("an opponent model needs caution=... (0 = trust the model fully, 1 = ignore it)")
         elo = int(params.get("opp_elo", 1200))
-        opponent = HumanPolicy.load(params["opponent"], elo=elo, opp_elo=elo, device=params.get("device", "auto"))
-    elif "opp_elo" in params:
-        raise ValueError("opp_elo needs opponent=...")
+        opponent = HumanPolicy.load(
+            params["opponent"],
+            elo=elo,
+            opp_elo=elo,
+            device=params.get("device", "auto"),
+            temperature=float(params.get("opp_temp", 1.0)),
+        )
+    elif "opp_elo" in params or "opp_temp" in params:
+        raise ValueError("opp_elo/opp_temp need opponent=...")
     return MCTSPlayer(
         params["path"],
         nodes=int(params["nodes"]) if "nodes" in params else None,
