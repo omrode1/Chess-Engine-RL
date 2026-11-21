@@ -62,3 +62,17 @@ def test_results_dir_does_not_make_tree_dirty(tmp_path):
     assert git_info(repo)["dirty"] is False
     (repo / "code.py").write_text("x = 2\n")  # code changed
     assert git_info(repo)["dirty"] is True
+
+
+def test_sigterm_is_recorded_as_terminated(tmp_path):
+    import os
+    import signal
+
+    from chess_rl.runlog import Terminated
+
+    runs = tmp_path / "runs.jsonl"
+    before = signal.getsignal(signal.SIGTERM)
+    with pytest.raises(Terminated), track_run("t", {}, runs_file=runs):
+        os.kill(os.getpid(), signal.SIGTERM)
+    assert read_runs(runs)[0]["status"] == "terminated"
+    assert signal.getsignal(signal.SIGTERM) is before  # the previous handler is restored

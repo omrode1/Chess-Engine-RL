@@ -22,5 +22,6 @@ val_every: 5000
 val_positions: 200_000
 ckpt_every: 2000
 max_hours: 5.0
+stall_seconds: 900
 seed: 0
 device: auto

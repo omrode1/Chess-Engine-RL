@@ -154,3 +154,22 @@ def test_cli_train_human(dataset, tmp_path, monkeypatch):
     ]
     assert main(["train", "human", *[x for a in args for x in ("--set", a)]]) == 0
     assert json.loads((tmp_path / "runs.jsonl").read_text())["kind"] == "train-human"
+
+
+def test_watchdog_kills_a_hung_step_and_dumps_stacks(dataset, tmp_path):
+    """A step that never finishes must end the run with stack traces, not hang silently (subprocess:
+    the watchdog exits the whole process)."""
+    import subprocess
+    import sys
+
+    script = f"""
+import time, dataclasses
+import chess_rl.train.human as h
+h.losses = lambda model, b: time.sleep(3600)  # a step that never finishes
+conf = h.HumanTrainConfig(data_dir={str(dataset)!r}, out_dir={str(tmp_path / "w")!r}, blocks=1, filters=8, se=False,
+                          cond_dim=4, batch_size=64, device="cpu", stall_seconds=2)
+h.train(conf, log=lambda s: None)
+"""
+    proc = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=120)
+    assert proc.returncode != 0
+    assert "Timeout" in proc.stderr and "time.sleep" not in proc.stdout and "<lambda>" in proc.stderr

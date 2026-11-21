@@ -94,7 +94,8 @@ def test_start_position_and_headers():
 
 @needs_stockfish
 def test_full_strength_stockfish_beats_random():
-    with StockfishPlayer(movetime=0.02) as strong:
+    # a node budget, not a time budget: the same game on any machine (a 0.02 s search drew once on a slow CI runner)
+    with StockfishPlayer(nodes=20_000) as strong:
         game = play_game(strong, RandomPlayer(0), max_plies=300)
     assert game.result == "1-0" and game.termination == "checkmate"
 

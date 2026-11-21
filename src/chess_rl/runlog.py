@@ -15,6 +15,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import signal
+import threading
 import time
 import uuid
 from collections.abc import Iterator
@@ -47,6 +49,14 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+class Terminated(BaseException):
+    """Raised in the main thread on SIGTERM inside track_run, so the run is still recorded."""
+
+
+def _raise_terminated(signum, frame) -> None:
+    raise Terminated(f"signal {signum}")
+
+
 @contextmanager
 def track_run(
     kind: str,
@@ -61,15 +71,23 @@ def track_run(
     started_at, t0 = _now(), time.perf_counter()
     git = git_info()  # the code that runs, captured before the run writes anything
     status = "ok"
+    previous = None
+    if threading.current_thread() is threading.main_thread():
+        previous = signal.signal(signal.SIGTERM, _raise_terminated)
     try:
         yield run
     except KeyboardInterrupt:
         status = "interrupted"
         raise
+    except Terminated:
+        status = "terminated"
+        raise
     except BaseException:
         status = "failed"
         raise
     finally:
+        if previous is not None:
+            signal.signal(signal.SIGTERM, previous)
         wall = time.perf_counter() - t0
         record = {
             "id": run.id,
