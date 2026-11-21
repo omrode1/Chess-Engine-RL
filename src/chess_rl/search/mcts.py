@@ -267,7 +267,7 @@ class MCTS:
         while len(batch) + completed < cfg.batch_size and collisions <= cfg.max_collisions:
             node, path, kinds = root, [], []
             while node.moves is not None and node.proven is None:
-                i, kind = self._select(node)
+                i, kind = self._select(node, root=node is root)
                 node.N[i] += 1
                 node.W[i] -= 1  # virtual loss
                 node.n_sum += 1
@@ -338,7 +338,7 @@ class MCTS:
     def _needs_human(self, board: chess.Board) -> bool:
         return self.opponent is not None and board.turn != self._us
 
-    def _select(self, node: Node) -> tuple[int, int]:
+    def _select(self, node: Node, root: bool = False) -> tuple[int, int]:
         cfg = self.config
         if node.H is not None and node.adv >= cfg.caution * node.n_sum:
             # follow the human: the move whose share of human-following visits lags its prior the most
@@ -350,7 +350,8 @@ class MCTS:
         q = np.where(visited, node.W / np.maximum(node.N, 1), fpu)
         q = np.where(np.isnan(node.PQ), q, node.PQ)
         u = cfg.c_puct * math.sqrt(max(node.n_sum, 1)) * node.P / (1 + node.N)
-        u = np.where(np.isnan(node.PQ), u, 0.0)  # a proven child's value is exact: no exploration bonus
+        if root:  # at the root a proven move's value is exact: no exploration bonus (interior search unchanged)
+            u = np.where(np.isnan(node.PQ), u, 0.0)
         if node.H is not None:
             node.adv += 1
             return int(np.argmax(q + u)), ADVERSARIAL
