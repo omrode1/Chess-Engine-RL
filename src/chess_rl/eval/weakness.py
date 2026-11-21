@@ -1,4 +1,4 @@
-"""Weakness report (M6, #37): where and how the player blunders, from his real games and Om-sim.
+"""Weakness report (M6, #37): where and how the player blunders, from their real games and Om-sim.
 
 Each blunder (a move that lost >= 10 win-% points, Stockfish labels from `chess-rl omsim label`) gets
 one category, from Stockfish's refutation of it:
@@ -9,11 +9,11 @@ one category, from Stockfish's refutation of it:
     ignored a threat        the refutation captures a piece that was already attacked before the move
     exposed a piece         the refutation captures a piece the move left undefended or unblocked
     allowed a combination   nothing is taken at once, but Stockfish's line wins material within 8 plies
-    missed a win            Stockfish's own move won material (within 8 plies) and he played something else
+    missed a win            Stockfish's own move won material (within 8 plies) and something else was played
     positional              no material changes hands in either line: a slower, positional loss
 
 plus a time-trouble flag (under 30 s on the clock). The report adds blunder rates by game phase and by
-clock, and, with an Om-sim model, the blunder risk the model predicts: overall, in his blunders vs his
+clock, and, with an Om-sim model, the blunder risk the model predicts: overall, on blunders vs on the
 other moves, and the positions where it expected the most trouble.
 
 The report contains the player's games, so it is written under data/ (git-ignored) by default.
@@ -244,7 +244,7 @@ def render_html(
         r = report["risk"]
         parts.append(
             "<h2>What Om-sim expects</h2>"
-            f"<p>Predicted blunder risk on his moves: {r['expected_rate']:.1%} on average; "
+            f"<p>Predicted blunder risk on the player's moves: {r['expected_rate']:.1%} on average; "
             f"{r['mean_on_blunders']:.1%} on the moves that were blunders vs {r['mean_on_other_moves']:.1%} on the rest.</p>"
             "<p class='note'>Om-sim was fitted on these same games, so this is an in-sample check, not a test.</p>"
         )
@@ -257,9 +257,9 @@ def render_html(
         top = sorted((r for r in rows if r["id"] in risk), key=lambda r: -risk[r["id"]])[:6]
         parts.append("<h2>Where Om-sim saw the most danger</h2><div class='grid'>")
         for r in top:
-            outcome = f"he lost {r['wp_loss']} points" if r.get("wp_loss", -1) >= 0 else ""
+            outcome = f"it lost {r['wp_loss']} points" if r.get("wp_loss", -1) >= 0 else ""
             parts.append(
-                f"<figure class='pos'>{_board_svg(r)}<figcaption>Risk {risk[r['id']]:.0%}: he played "
+                f"<figure class='pos'>{_board_svg(r)}<figcaption>Risk {risk[r['id']]:.0%}: played "
                 f"{html.escape(_san(r['fen'], r['move']))}; {outcome}</figcaption></figure>"
             )
         parts.append("</div>")

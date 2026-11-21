@@ -1,5 +1,5 @@
 # M6 human-model base set (#35): both players rated 600-1600 on Lichess, around the owner's level
-# (chess.com rapid/blitz 300-600 in his games; Lichess ratings run several hundred points higher).
+# (the owner's chess.com rapid/blitz games are rated 300-600; Lichess ratings run several hundred points higher).
 # Adds per-position clock and wp_loss (blunder labels from Lichess's own Stockfish annotations).
 # Usage: uv run chess-rl data build --config configs/data/human-band.yaml
 name: human-600-1600-2026-10
