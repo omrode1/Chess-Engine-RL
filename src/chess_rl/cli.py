@@ -83,7 +83,7 @@ def _cmd_match(args: argparse.Namespace) -> int:
     conf = {k: getattr(args, k) for k in ("a", "b", "games", "workers", "opening_plies", "max_plies", "seed", "tc")}
     from chess_rl.eval.registry import parse_spec
 
-    uses_net = any(parse_spec(spec)[0] in {"net", "mcts"} for spec in (args.a, args.b))
+    uses_net = any(parse_spec(spec)[0] in {"net", "mcts", "human"} for spec in (args.a, args.b))
     with track_run("match", conf, seed=args.seed, device=pick_device("auto") if uses_net else "cpu") as run:
         result = run_match(
             args.a,

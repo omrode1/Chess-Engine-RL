@@ -5,6 +5,7 @@
     stockfish:elo=1500,movetime=0.1 StockfishPlayer (keys: elo, skill, movetime, nodes, threads, hash_mb)
     net:path=runs/m4/best.pt[,temperature=0,device=auto]   raw policy network, no search (M4)
     mcts:path=runs/m4/m4-final.pt,nodes=800 (or movetime=1.0)  network + tree search (M5)
+    human:path=runs/human/best.pt,elo=1200[,temperature=1]   simulated human opponent (M6 model, M7)
 
 New engines register themselves here as they are built (M4: policy network, M5: MCTS, ...).
 """
@@ -65,14 +66,41 @@ def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
     from chess_rl.search.player import MCTSPlayer
     from chess_rl.search.timeman import TimeManager
 
-    search_keys = {"c_puct": "c_puct", "fpu": "fpu_reduction", "policy_temp": "policy_temp", "batch": "batch_size"}
-    allowed = {"path", "nodes", "movetime", "device", "threads", "book", "overhead", *search_keys}
+    search_keys = {
+        "c_puct": "c_puct",
+        "fpu": "fpu_reduction",
+        "policy_temp": "policy_temp",
+        "batch": "batch_size",
+        "caution": "caution",
+    }
+    allowed = {
+        "path",
+        "nodes",
+        "movetime",
+        "device",
+        "threads",
+        "book",
+        "overhead",
+        "opponent",
+        "opp_elo",
+        *search_keys,
+    }
     unknown = set(params) - allowed
     if unknown or "path" not in params:
         raise ValueError(f"mcts player needs path=...; allowed keys {sorted(allowed)}")
     config = SearchConfig(
         **{field: _num(params[key]) for key, field in search_keys.items() if key in params}  # type: ignore[arg-type]
     )
+    opponent = None
+    if "opponent" in params:
+        from chess_rl.search.opponent import HumanPolicy
+
+        if "caution" not in params:
+            raise ValueError("an opponent model needs caution=... (0 = trust the model fully, 1 = ignore it)")
+        elo = int(params.get("opp_elo", 1200))
+        opponent = HumanPolicy.load(params["opponent"], elo=elo, opp_elo=elo, device=params.get("device", "auto"))
+    elif "opp_elo" in params:
+        raise ValueError("opp_elo needs opponent=...")
     return MCTSPlayer(
         params["path"],
         nodes=int(params["nodes"]) if "nodes" in params else None,
@@ -84,7 +112,25 @@ def _mcts(params: dict[str, str], seed: int | None, name: str | None) -> Player:
         book=params.get("book", "false").lower() in {"1", "true", "yes", "on"},
         time_manager=TimeManager(move_overhead=float(params.get("overhead", 0.1))),
         seed=seed,
+        opponent=opponent,
     )
+
+
+def _human(params: dict[str, str], seed: int | None, name: str | None) -> Player:
+    from chess_rl.search.opponent import HumanPlayer, HumanPolicy
+
+    allowed = {"path", "elo", "opp_elo", "temperature", "player", "device"}
+    unknown = set(params) - allowed
+    if unknown or "path" not in params:
+        raise ValueError(f"human player needs path=...; allowed keys {sorted(allowed)}")
+    policy = HumanPolicy.load(
+        params["path"],
+        elo=int(params.get("elo", 1200)),
+        opp_elo=int(params["opp_elo"]) if "opp_elo" in params else None,
+        player=int(params["player"]) if "player" in params else None,
+        device=params.get("device", "auto"),
+    )
+    return HumanPlayer(policy, temperature=float(params.get("temperature", 1.0)), seed=seed, name=name or "human")
 
 
 _BUILDERS: dict[str, Callable[[dict[str, str], int | None, str | None], Player]] = {
@@ -93,6 +139,7 @@ _BUILDERS: dict[str, Callable[[dict[str, str], int | None, str | None], Player]]
     "stockfish": _stockfish,
     "net": _net,
     "mcts": _mcts,
+    "human": _human,
 }
 
 
