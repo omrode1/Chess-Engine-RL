@@ -51,6 +51,20 @@ uv run chess-rl match "mcts:path=runs/m4/m4-final.pt" "stockfish:elo=1500,moveti
 
 Get `m4-final.pt` from release [v0.2.0](https://github.com/omrode1/Chess-Engine-RL/releases/tag/v0.2.0) (the network) into `runs/m4/`.
 
+## Modelling the opponent (M6, release v0.4.0)
+
+A second network predicts the moves *people at the owner's level* play, and which of them are blunders.
+It is conditioned on both players' ratings and the clock, and trained on 30M positions from 600–1600 Lichess games.
+On unseen games it matches **50.8% of human moves vs 48.4% for Maia-2** (blunder AUC 0.82). Fitted to
+the owner's 10 games (Om-sim), it does not yet beat the rating-calibrated base model, which needs more games. Full report:
+[`results/m6/`](results/m6/README.md).
+
+```bash
+uv run chess-rl collect sync --chesscom <user>        # the owner's games, stored locally only
+uv run chess-rl omsim label && uv run chess-rl omsim eval
+uv run chess-rl omsim report                          # HTML weakness report from real games
+```
+
 ## Train the network (M4)
 
 ```bash
