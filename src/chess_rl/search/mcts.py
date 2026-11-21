@@ -18,6 +18,15 @@ results propagate up as "proven" values: a position with a move into a lost posi
 position whose every move is proven is decided. Proven values override Q, so a forced mate is never
 lost again to averaging, and a search with a proven root stops early.
 
+Exploitative search (#38): with an `opponent` model (planes -> move logits of the human being played),
+nodes where the opponent is to move get human priors H. There, a `caution` share of the visits is
+adversarial (PUCT, as above) and the rest follow H: each such visit goes to the move whose share of
+these visits lags H the most. Values back up as averages, so an opponent node's value tends to
+caution * (a strong reply) + (1 - caution) * (the average human reply). caution = 1 is standard search.
+Proven results stay exact, so a forced loss the search has found is never gambled on, and every opponent
+node is checked for a mate in one first (with caution = 0 nothing else is adversarial). Deeper forced lines
+are found only through the adversarial share: keep caution above 0.
+
 The tree is kept between moves: if the new position follows the previous root by a few moves inside
 the tree, that subtree becomes the new root. A transposition cache keeps network outputs by position.
 """
@@ -47,10 +56,27 @@ class SearchConfig:
     batch_size: int = 32
     max_collisions: int = 8  # stop filling a batch after this many walks end on a leaf already waiting
     cache_size: int = 200_000  # positions; 0 disables the cache
+    caution: float = 1.0  # with an opponent model: share of adversarial visits at opponent nodes (1 = standard)
 
 
 class Node:
-    __slots__ = ("moves", "P", "N", "W", "PQ", "children", "n_sum", "visits", "v_sum", "proven", "pending", "key")
+    __slots__ = (
+        "moves",
+        "P",
+        "N",
+        "W",
+        "PQ",
+        "children",
+        "n_sum",
+        "visits",
+        "v_sum",
+        "proven",
+        "pending",
+        "key",
+        "H",
+        "NH",
+        "adv",
+    )
 
     def __init__(self) -> None:
         self.moves: list[chess.Move] | None = None  # None until expanded
@@ -62,6 +88,9 @@ class Node:
         self.proven: float | None = None  # exact value for the side to move here
         self.pending = False  # waiting for the network
         self.key: tuple | None = None  # transposition-cache key
+        self.H: np.ndarray | None = None  # human priors (opponent nodes in exploitative search)
+        self.NH: np.ndarray | None = None  # visits that followed H
+        self.adv = 0  # visits that were adversarial
 
     @property
     def q(self) -> float:
@@ -75,6 +104,16 @@ class Node:
         self.W = np.zeros(k, dtype=np.float64)
         self.PQ = np.full(k, np.nan, dtype=np.float64)
         self.children = [None] * k
+
+    def set_human(self, priors: np.ndarray) -> None:
+        self.H = priors.astype(np.float32)
+        self.NH = np.zeros(len(priors), dtype=np.float32)
+
+
+PUCT, ADVERSARIAL, HUMAN = 0, 1, 2  # how a child was selected (undone exactly on a collision)
+
+# (B, 21, 8, 8) planes, side to move = the opponent -> (B, 4672) move logits of the human being played
+OpponentModel = Callable[[np.ndarray], np.ndarray]
 
 
 @dataclass
@@ -114,14 +153,29 @@ def _terminal_value(board: chess.Board, moves: list[chess.Move]) -> float | None
     return None
 
 
+def _has_mate_in_one(board: chess.Board, moves: list[chess.Move]) -> bool:
+    for move in moves:
+        if board.gives_check(move):
+            board.push(move)
+            mate = board.is_checkmate()
+            board.pop()
+            if mate:
+                return True
+    return False
+
+
 class MCTS:
-    def __init__(self, evaluator: Evaluator, config: SearchConfig = SearchConfig()):
+    def __init__(
+        self, evaluator: Evaluator, config: SearchConfig = SearchConfig(), opponent: OpponentModel | None = None
+    ):
         self.evaluate = evaluator
         self.config = config
+        self.opponent = opponent if config.caution < 1.0 else None
+        self._us: chess.Color = chess.WHITE
         self._root: Node | None = None
         self._root_stack: list[chess.Move] = []
         self._root_fen = ""
-        self._cache: OrderedDict[tuple, tuple[np.ndarray, float]] = OrderedDict()
+        self._cache: OrderedDict[tuple, tuple[np.ndarray, float, np.ndarray | None]] = OrderedDict()
 
     def reset(self) -> None:
         self._root = None
@@ -172,6 +226,9 @@ class MCTS:
         if not moves:
             raise ValueError("no legal moves")
         start = time.perf_counter()
+        if board.turn != self._us:  # playing the other colour now: human priors were for the other side
+            self._us = board.turn
+            self.reset()
         root = self._take_root(board)
         reused = root.visits
         self._root, self._root_stack, self._root_fen = root, list(board.move_stack), board.fen()
@@ -184,7 +241,8 @@ class MCTS:
         if len(moves) == 1:  # forced: no point searching
             return self._result(root, done, time.perf_counter() - start, reused)
         while True:
-            done += self._step(root, work)
+            limit = self.config.batch_size if nodes is None else max(1, min(self.config.batch_size, nodes - done))
+            done += self._step(root, work, limit)
             elapsed = time.perf_counter() - start
             if root.proven is not None:  # solved: more search cannot change the result
                 break
@@ -200,20 +258,22 @@ class MCTS:
     def _indices(moves: list[chess.Move], turn: chess.Color) -> np.ndarray:
         return np.fromiter((move_to_index(m, turn) for m in moves), dtype=np.int64, count=len(moves))
 
-    def _step(self, root: Node, board: chess.Board) -> int:
-        """Collect up to batch_size leaves, evaluate them in one call, back up. Returns walks completed."""
+    def _step(self, root: Node, board: chess.Board, limit: int) -> int:
+        """Collect up to `limit` (<= batch_size) leaves, evaluate them in one call, back up. Returns walks completed."""
         cfg = self.config
         batch: list[tuple[Node, list[tuple[Node, int]], list[chess.Move], np.ndarray]] = []
         planes: list[np.ndarray] = []
+        human_rows: list[int] = []  # batch entries where the opponent is to move
         completed = collisions = 0
-        while len(batch) + completed < cfg.batch_size and collisions <= cfg.max_collisions:
-            node, path = root, []
+        while len(batch) + completed < limit and collisions <= cfg.max_collisions:
+            node, path, kinds = root, [], []
             while node.moves is not None and node.proven is None:
-                i = self._select(node)
+                i, kind = self._select(node, root=node is root)
                 node.N[i] += 1
                 node.W[i] -= 1  # virtual loss
                 node.n_sum += 1
                 path.append((node, i))
+                kinds.append(kind)
                 board.push(node.moves[i])
                 child = node.children[i]
                 if child is None:
@@ -223,11 +283,13 @@ class MCTS:
                 self._backup(path, node, node.proven)
                 completed += 1
             elif node.pending:
-                self._revert(path)
+                self._revert(path, kinds)
                 collisions += 1
             else:
                 moves = list(board.legal_moves)
                 term = _terminal_value(board, moves)
+                if term is None and self._needs_human(board) and _has_mate_in_one(board, moves):
+                    term = 1.0  # the opponent mates next move: never assume the human misses it
                 if term is not None:
                     node.proven = term
                     self._backup(path, node, term)
@@ -235,48 +297,77 @@ class MCTS:
                 else:
                     key = (board._transposition_key(), board.halfmove_clock)
                     hit = self._cache.get(key) if cfg.cache_size else None
-                    if hit is not None:
+                    if hit is not None and (hit[2] is not None or not self._needs_human(board)):
                         self._cache.move_to_end(key)
                         node.expand(moves, hit[0])
+                        if hit[2] is not None:
+                            node.set_human(hit[2])
                         self._backup(path, node, hit[1])
                         completed += 1
                     else:
                         node.pending, node.key = True, key
                         batch.append((node, path, moves, self._indices(moves, board.turn)))
                         planes.append(encode_board(board))
+                        if self._needs_human(board):
+                            human_rows.append(len(batch) - 1)
             for _ in path:
                 board.pop()
             if root.proven is not None:
                 break
         if batch:
-            logits, values = self.evaluate(np.stack(planes))
+            stacked = np.stack(planes)
+            logits, values = self.evaluate(stacked)
+            human: dict[int, np.ndarray] = {}
+            if human_rows and self.opponent is not None:
+                human_logits = self.opponent(stacked[human_rows])
+                human = {j: human_logits[k] for k, j in enumerate(human_rows)}
             for j, (node, path, moves, idx) in enumerate(batch):
                 priors, value = _priors(logits[j], idx, cfg.policy_temp), float(values[j])
                 node.pending = False
                 node.expand(moves, priors)
+                h = _priors(human[j], idx, 1.0) if j in human else None
+                if h is not None:
+                    node.set_human(h)
                 if cfg.cache_size:
-                    self._cache[node.key] = (priors, value)
+                    self._cache[node.key] = (priors, value, h)
                     if len(self._cache) > cfg.cache_size:
                         self._cache.popitem(last=False)
                 self._backup(path, node, value)
             completed += len(batch)
         return completed
 
-    def _select(self, node: Node) -> int:
+    def _needs_human(self, board: chess.Board) -> bool:
+        return self.opponent is not None and board.turn != self._us
+
+    def _select(self, node: Node, root: bool = False) -> tuple[int, int]:
         cfg = self.config
+        if node.H is not None and node.adv >= cfg.caution * node.n_sum:
+            # follow the human: the move whose share of human-following visits lags its prior the most
+            i = int(np.argmax(node.H - node.NH / (node.NH.sum() + 1)))
+            node.NH[i] += 1
+            return i, HUMAN
         visited = node.N > 0
         fpu = node.q - cfg.fpu_reduction * math.sqrt(float(node.P[visited].sum()))
         q = np.where(visited, node.W / np.maximum(node.N, 1), fpu)
         q = np.where(np.isnan(node.PQ), q, node.PQ)
         u = cfg.c_puct * math.sqrt(max(node.n_sum, 1)) * node.P / (1 + node.N)
-        return int(np.argmax(q + u))
+        if root:  # at the root a proven move's value is exact: no exploration bonus (interior search unchanged)
+            u = np.where(np.isnan(node.PQ), u, 0.0)
+        if node.H is not None:
+            node.adv += 1
+            return int(np.argmax(q + u)), ADVERSARIAL
+        return int(np.argmax(q + u)), PUCT
 
     @staticmethod
-    def _revert(path: list[tuple[Node, int]]) -> None:
-        for node, i in path:
+    def _revert(path: list[tuple[Node, int]], kinds: list[int]) -> None:
+        for (node, i), kind in zip(path, kinds, strict=True):
             node.N[i] -= 1
             node.W[i] += 1
             node.n_sum -= 1
+            if kind == HUMAN:
+                node.NH[i] -= 1
+            elif kind == ADVERSARIAL:
+                node.adv -= 1
 
     @staticmethod
     def _backup(path: list[tuple[Node, int]], leaf: Node, value: float) -> None:
@@ -316,11 +407,23 @@ class MCTS:
     def _result(self, root: Node, done: int, seconds: float, reused: int) -> SearchResult:
         best = self._proven_choice(root)
         if best is None:
-            # most visits; proven losses last; ties by Q
-            n = root.N.astype(np.float64).copy()
-            n[root.PQ == -1.0] = -1
+            # Most visits among searched moves (ties by Q), but proven moves compete on value: a proven
+            # draw or loss never replaces a searched move that scores better (at small budgets a high-prior
+            # stalemate can collect the most visits), and a proven draw is taken when it beats the best
+            # searched move (a saving repetition).
             q = np.where(root.N > 0, root.W / np.maximum(root.N, 1), -2.0)
-            best = int(np.lexsort((q, n))[-1])
+            searched = np.isnan(root.PQ) & (root.N > 0)
+            proven = ~np.isnan(root.PQ)
+            best = -1
+            if searched.any():
+                n = np.where(searched, root.N.astype(np.float64), -1.0)
+                best = int(np.lexsort((q, n))[-1])
+            if proven.any():
+                p = int(np.argmax(np.where(proven, root.PQ, -np.inf)))
+                if best < 0 or root.PQ[p] > q[best]:
+                    best = p
+            if best < 0:  # nothing searched or proven (cannot happen after one walk); fall back to the prior
+                best = int(np.argmax(root.P))
         pv, node = [root.moves[best]], root.children[best]
         while node is not None and node.moves is not None and node.N.max() > 0:
             i = int(np.argmax(node.N))

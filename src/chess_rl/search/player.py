@@ -5,6 +5,8 @@ mcts:path=...,nodes=800                         fixed number of search nodes per
 mcts:path=...,movetime=1.0                      fixed time per move (seconds)
 mcts:path=...,book=true                         play opening-book moves while in book (for human games)
 mcts:path=...,nodes=800,device=cpu,batch=16     other keys: c_puct, fpu, policy_temp, threads, overhead
+mcts:path=...,opponent=runs/omsim/om-sim.pt,opp_elo=1200,caution=0.3
+                                                exploitative search against a human model (M7, #38)
 
 A fixed budget (nodes / movetime) is still capped by the clock's hard limit when a clock is given.
 """
@@ -62,6 +64,7 @@ class MCTSPlayer:
         book: bool = False,
         time_manager: TimeManager = TimeManager(),
         seed: int | None = None,
+        opponent=None,  # chess_rl.search.opponent.HumanPolicy (or any planes -> logits callable)
     ):
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -76,7 +79,8 @@ class MCTSPlayer:
         # warm up (CUDA context, cuDNN kernel choice) now, not on the first move's clock
         for batch in {1, config.batch_size}:
             self.evaluator(np.zeros((batch, NUM_PLANES, 8, 8), np.float32))
-        self.search = MCTS(self.evaluator, config)
+        self.search = MCTS(self.evaluator, config, opponent=opponent)
+        self.opponent = opponent
         self.nodes, self.movetime = nodes, movetime
         self.time_manager = time_manager
         self.book = OpeningBook() if book else None
